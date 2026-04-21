@@ -2,8 +2,15 @@
 
 import React, { useState, FormEvent } from 'react';
 import { NDAPayload } from '@/utils/templateEngine';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function NDAForm() {
+interface NDAFormProps {
+  token: string;
+}
+
+export default function NDAForm({ token }: NDAFormProps) {
+  const { user, logout } = useAuth();
+
   const [formData, setFormData] = useState<NDAPayload>({
     purpose: '',
     effectiveDate: new Date().toISOString().split('T')[0],
@@ -94,24 +101,18 @@ export default function NDAForm() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowTable(!showTable)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  showTable
-                    ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {showTable ? 'Hide Party Table' : 'Show Party Table'}
-              </button>
-              <a
-                href="https://commonpaper.com/standards/mutual-nda/1.0/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-all"
-              >
-                View Standard Terms
-              </a>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-800">{user?.email}</p>
+                  <p className="text-xs text-slate-500">Signed in</p>
+                </div>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200 transition-all"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         </div>

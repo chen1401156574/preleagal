@@ -1,40 +1,115 @@
-# Pre-Legal
+# Pre-Legal V1
 
-> **项目状态**：已完成 ✅
->
-> 本项目的法律文件模板数据库已完成初始化。
+> **项目状态**：V1 基础架构完成 ✅
 
-## 项目概述
+快速启动法律文件生成平台，包含完整的身份验证、文档生成和下载功能。
 
-本系统用于存储和管理法律文件模板，这些模板日后可以根据用户需求进行修改和定制。
+## 快速开始
 
-## 模板数据库
+### 启动应用
 
-项目包含一个 `templates/` 目录，其中存储了从 CommonPaper 项目下载的法律文档模板。
+```bash
+# 启动所有服务（后端 + 前端）
+./start.sh
 
-### 已下载的模板
+# 或使用 docker-compose
+docker-compose up -d
+```
 
-- [Business Associate Agreement (BAA)](templates/BAA.md) - 业务合作伙伴协议
-- [Cloud Service Agreement (CSA)](templates/CSA.md) - 云服务协议
-- [Design Partner Agreement](templates/design-partner-agreement.md) - 设计合作协议
-- [Data Processing Agreement (DPA)](templates/DPA.md) - 数据处理协议
-- [Mutual Non-Disclosure Agreement (NDA)](templates/Mutual-NDA.md) - 相互保密协议
-- [Partnership Agreement](templates/Partnership-Agreement.md) - 合伙协议
-- [Pilot Agreement](templates/Pilot-Agreement.md) - 试点协议
-- [Professional Services Agreement (PSA)](templates/psa.md) - 专业服务协议
-- [Service Level Agreement (SLA)](templates/sla.md) - 服务等级协议
-- [Software License Agreement](templates/Software-License-Agreement.md) - 软件许可协议
+### 停止应用
 
-完整模板列表请查看 [catalog.json](catalog.json)。
+```bash
+# 停止所有服务
+./stop.sh
 
-### 许可证
+# 或
+docker-compose down
+```
 
-`templates/` 目录中的所有内容包括遵循 CC BY 4.0 许可协议。
+### 访问应用
 
-## 数据来源
+- **前端**: http://localhost:3000
+- **后端 API**: http://localhost:8000
+- **健康检查**: http://localhost:8000/health
 
-所有模板源自 [CommonPaper](https://github.com/CommonPaper) 项目，该项目提供了高质量的法律文档模板。
+## 功能特性
 
-## 后续发展
+### V1 核心功能
 
-此数据库设计为可扩展的，未来可以根据具体业务需求添加新的模板或对现有模板进行修改。
+1. **用户认证**
+   - 注册新用户
+   - 登录/登出
+   - JWT Token 管理
+
+2. **NDA 文档生成**
+   - 交互式表单填写
+   - 实时预览
+   - PDF 下载
+
+3. **技术架构**
+   - 后端：FastAPI + SQLAlchemy + SQLite
+   - 前端：Next.js + TypeScript + TailwindCSS
+   - Docker 容器化部署
+
+## API 端点
+
+### 认证
+- `POST /api/register` - 注册新用户
+- `POST /api/login` - 用户登录
+- `GET /api/me` - 获取当前用户信息 (需要 Token)
+
+### 其他
+- `GET /` - API 欢迎页面
+- `GET /health` - 健康检查
+
+## 环境变量
+
+设置 `.env` 文件：
+
+```bash
+SECRET_KEY=your-secret-key-change-in-production
+```
+
+## 项目结构
+
+```
+preleagal/
+├── backend/                    # FastAPI 后端
+│   ├── main.py                # 主应用文件
+│   └── requirements.txt       # Python 依赖
+├── frontend/                   # Next.js 前端
+│   ├── src/
+│   │   ├── app/              # Next.js 路由
+│   │   ├── components/       # React 组件
+│   │   └── contexts/         # React Context
+│   └── package.json
+├── templates/                  # 法律文档模板
+├── Dockerfile                 # 后端 Docker 镜像
+├── docker-compose.yml         # Docker 编排
+├── start.sh                   # 启动脚本
+└── stop.sh                    # 停止脚本
+```
+
+## 开发
+
+### 本地开发
+
+```bash
+# 启动后端
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# 启动前端
+cd frontend
+npm run dev
+```
+
+### 构建 Docker 镜像
+
+```bash
+docker-compose build
+```
+
+## 许可证
+
+本项目使用的模板源自 [CommonPaper](https://github.com/CommonPaper) 项目，遵循 CC BY 4.0 许可协议。

@@ -16,7 +16,8 @@
     "jspdf-autotable": "^3.8.4",
     "next": "15.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

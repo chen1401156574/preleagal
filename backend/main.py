@@ -6,9 +6,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import bcrypt
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List, Dict
 import jwt
 import os
+from services.chat_service import get_chat_response, check_missing_fields, get_missing_fields_prompt
 
 # Configuration
 DATABASE_URL = "sqlite:///./users.db"
@@ -47,6 +48,19 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    currentFields: Optional[Dict[str, str]] = None
+
+class ChatResponse(BaseModel):
+    reply: str
+    fields: Dict[str, str]
+    missingFields: Optional[List[str]] = None
 
 # FastAPI app
 app = FastAPI(title="Prelegal API", version="1.0.0")
@@ -144,3 +158,24 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
 @app.get("/api/me", response_model=UserResponse)
 async def get_current_user(current_user: User = Depends(get_current_user_header)):
     return current_user
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    # Convert ChatMessage objects to dicts for the service
+    messages_dict = [{"role": m.role, "content": m.content} for m in request.messages]
+
+    # Get chat response from AI
+    response = await get_chat_response(messages_dict, request.currentFields)
+
+    # Check for missing critical fields if we have currentFields
+    missing_fields = None
+    if request.currentFields:
+        missing = check_missing_fields(request.currentFields)
+        if missing:
+            missing_fields = missing
+
+    return ChatResponse(
+        reply=response["reply"],
+        fields=response["fields"],
+        missingFields=missing_fields
+    )

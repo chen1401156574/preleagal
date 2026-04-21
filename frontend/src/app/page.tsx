@@ -1,6 +1,6 @@
 'use client';
 
-import NDAForm from '@/components/NDAForm';
+import ChatInterface from '@/components/ChatInterface';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 
@@ -103,19 +103,16 @@ export default function Home() {
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-lg shadow-lg transform transition-all active:scale-95 disabled:opacity-70"
             >
-              {authLoading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
+              {authLoading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setLocalError(null);
-              }}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
               {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
             </button>
@@ -125,5 +122,5 @@ export default function Home() {
     );
   }
 
-  return <NDAForm token={token || ''} />;
+  return <ChatInterface />;
 }

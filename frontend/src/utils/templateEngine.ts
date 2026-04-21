@@ -24,13 +24,14 @@ export interface NDAPayload {
 
 // 渲染表格的辅助函数
 export function renderTable(data: NDAPayload): string {
+  const emptyValue = '_';
   return `|| **PARTY 1** | **PARTY 2** |
 |:---|:----:|:----:|
-|Signature|${data.party1Signature || '_'}|${data.party2Signature || '_'}|
-|Print Name|${data.party1Name || '_'}|${data.party2Name || '_'}|
-|Title|${data.party1Title || '_'}|${data.party2Title || '_'}|
-|Company|${data.party1Company || '_'}|${data.party2Company || '_'}|
-|Notice Address (Use email or postal address)|${data.party1Address || '_'}|${data.party2Address || '_'}|
+|Signature|${data.party1Signature || emptyValue}|${data.party2Signature || emptyValue}|
+|Print Name|${data.party1Name || emptyValue}|${data.party2Name || emptyValue}|
+|Title|${data.party1Title || emptyValue}|${data.party2Title || emptyValue}|
+|Company|${data.party1Company || emptyValue}|${data.party2Company || emptyValue}|
+|Notice Address (Use email or postal address)|${data.party1Address || emptyValue}|${data.party2Address || emptyValue}|
 |Date|${data.effectiveDate}|${data.effectiveDate}|`;
 }
 

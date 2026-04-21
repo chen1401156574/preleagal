@@ -32,7 +32,9 @@
       "mcp__atlassian__transitionJiraIssue",
       "Bash(npm install *)",
       "Bash(npm run *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(npm test *)",
+      "Bash(Write -Path 'D:\\\\project_codes\\\\preleagal\\\\frontend\\\\src\\\\app\\\\api\\\\generate-pdf\\\\route.test.ts' -Content 'import { NextResponse } from '\\\\''next/server'\\\\''; *)"
     ]
   }
 }

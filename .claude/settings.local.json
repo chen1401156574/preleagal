@@ -18,7 +18,21 @@
       "Bash(curl *)",
       "Bash(python -c \"import sys, json; repos = json.load\\(sys.stdin\\); print\\('\\\\n'.join\\([f\\\\\"{r['name']} - {r.get\\('description', 'No description'\\)}\\\\\" for r in repos]\\)\\)\")",
       "Bash(python download_templates.py)",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(git checkout *)",
+      "Bash(GIT_ASKPASS=/dev/null git --git-dir=D:\\\\project_codes\\\\preleagal\\\\.git --work-tree=D:\\\\project_codes\\\\preleagal push -u origin PL-2-download-legal-templates)",
+      "mcp__github__create_pull_request",
+      "mcp__github__create_branch",
+      "Bash(git fetch *)",
+      "mcp__github__list_pull_requests",
+      "Bash(GIT_ASKPASS=\"\" git push --force --set-upstream origin PL-2-download-legal-templates)",
+      "mcp__atlassian__editJiraIssue",
+      "mcp__atlassian__getTransitionsForJiraIssue",
+      "mcp__atlassian__addCommentToJiraIssue",
+      "mcp__atlassian__transitionJiraIssue",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(git *)"
     ]
   }
 }

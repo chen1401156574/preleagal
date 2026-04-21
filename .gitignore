@@ -87,3 +87,6 @@ coverage/
 *.pem
 *.crt
 *.key
+
+# Temporary files
+tmp/

@@ -34,7 +34,10 @@
       "Bash(npm run *)",
       "Bash(git *)",
       "Bash(npm test *)",
-      "Bash(Write -Path 'D:\\\\project_codes\\\\preleagal\\\\frontend\\\\src\\\\app\\\\api\\\\generate-pdf\\\\route.test.ts' -Content 'import { NextResponse } from '\\\\''next/server'\\\\''; *)"
+      "Bash(Write -Path 'D:\\\\project_codes\\\\preleagal\\\\frontend\\\\src\\\\app\\\\api\\\\generate-pdf\\\\route.test.ts' -Content 'import { NextResponse } from '\\\\''next/server'\\\\''; *)",
+      "mcp__github__search_pull_requests",
+      "Bash(pip install *)",
+      "Bash(pip list *)"
     ]
   }
 }

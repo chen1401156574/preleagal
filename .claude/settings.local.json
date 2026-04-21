@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__github__issue_write",
+      "mcp__github__get_me",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Read(//c/Users/user/.claude/projects//**)",
+      "Read(//c/Users/user/.claude/projects/**)",
+      "mcp__atlassian__search",
+      "mcp__atlassian__getAccessibleAtlassianResources",
+      "mcp__atlassian__searchJiraIssuesUsingJql",
+      "mcp__atlassian__getVisibleJiraProjects",
+      "mcp__atlassian__getJiraIssue",
+      "mcp__github__get_file_contents",
+      "Bash(curl *)",
+      "Bash(python -c \"import sys, json; repos = json.load\\(sys.stdin\\); print\\('\\\\n'.join\\([f\\\\\"{r['name']} - {r.get\\('description', 'No description'\\)}\\\\\" for r in repos]\\)\\)\")",
+      "Bash(python download_templates.py)",
+      "Bash(git restore *)"
+    ]
+  }
+}

@@ -1,0 +1,79 @@
+[
+  {
+    "name": "BAA.md",
+    "description": "Common Paper standard Business Associate Agreement",
+    "repo": "Business Associate Agreement (BAA)",
+    "url": "https://github.com/CommonPaper/BAA/blob/main/BAA.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "CSA.md",
+    "description": "Common Paper standard Cloud Service Agreement",
+    "repo": "Cloud Service Agreement (CSA)",
+    "url": "https://github.com/CommonPaper/CSA/blob/main/CSA.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "design-partner-agreement.md",
+    "description": "Common Paper standard Design Partner Agreement",
+    "repo": "Design Partner Agreement",
+    "url": "https://github.com/CommonPaper/Design-Partner-Agreement/blob/main/design-partner-agreement.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "DPA.md",
+    "description": "Common Paper Data Processing Agreement",
+    "repo": "Data Processing Agreement (DPA)",
+    "url": "https://github.com/CommonPaper/DPA/blob/main/DPA.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "Mutual-NDA-coverpage.md",
+    "description": "Common Paper Mutual NDA",
+    "repo": "Mutual Non-Disclosure Agreement (NDA)",
+    "url": "https://github.com/CommonPaper/Mutual-NDA/blob/main/Mutual-NDA-coverpage.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "Mutual-NDA.md",
+    "description": "Common Paper Mutual NDA",
+    "repo": "Mutual Non-Disclosure Agreement (NDA)",
+    "url": "https://github.com/CommonPaper/Mutual-NDA/blob/main/Mutual-NDA.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "Partnership-Agreement.md",
+    "description": "Common Paper standard Partnership Agreement",
+    "repo": "Partnership Agreement",
+    "url": "https://github.com/CommonPaper/Partnership-Agreement/blob/main/Partnership-Agreement.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "Pilot-Agreement.md",
+    "description": "Common Paper standard Pilot Agreement",
+    "repo": "Pilot Agreement",
+    "url": "https://github.com/CommonPaper/Pilot-Agreement/blob/main/Pilot-Agreement.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "psa.md",
+    "description": "Common Paper standard Professional Services Agreement",
+    "repo": "Professional Services Agreement (PSA)",
+    "url": "https://github.com/CommonPaper/PSA/blob/main/psa.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "sla.md",
+    "description": "Common Paper Service Level Agreement",
+    "repo": "Service Level Agreement (SLA)",
+    "url": "https://github.com/CommonPaper/SLA/blob/main/sla.md",
+    "downloadedAt": "2026-04-21"
+  },
+  {
+    "name": "Software-License-Agreement.md",
+    "description": "Common Paper standard Software License Agreement",
+    "repo": "Software License Agreement",
+    "url": "https://github.com/CommonPaper/Software-License-Agreement/blob/main/Software-License-Agreement.md",
+    "downloadedAt": "2026-04-21"
+  }
+]

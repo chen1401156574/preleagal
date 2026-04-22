@@ -169,8 +169,10 @@ async def chat(request: ChatRequest):
 
     # Check for missing critical fields if we have currentFields
     missing_fields = None
-    if request.currentFields:
-        missing = check_missing_fields(request.currentFields)
+    if request.currentFields is not None:
+        merged_fields = dict(request.currentFields)
+        merged_fields.update(response.get("fields", {}))
+        missing = check_missing_fields(merged_fields)
         if missing:
             missing_fields = missing
 

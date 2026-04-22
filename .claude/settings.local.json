@@ -38,7 +38,22 @@
       "mcp__github__search_pull_requests",
       "Bash(pip install *)",
       "Bash(pip list *)",
-      "mcp__atlassian__atlassianUserInfo"
+      "mcp__atlassian__atlassianUserInfo",
+      "Bash(python -m mypy . --ignore-missing-imports)",
+      "Bash(npx eslint *)",
+      "Bash(python -m mypy services/chat_service.py main.py --ignore-missing-imports)",
+      "Bash(npx tsc *)",
+      "Bash(python -m pytest --collect-only)",
+      "Bash(python -c \"import services.chat_service; print\\('Backend service imports successfully'\\)\")",
+      "Bash(npm exec *)",
+      "Bash(uvicorn main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(timeout 10 uvicorn main:app --host 0.0.0.0 --port 8000)",
+      "Bash(npx playwright *)",
+      "Bash(node e2e/test-chat-service.js)",
+      "Bash(python -c \"from dotenv import load_dotenv; load_dotenv\\(\\); import os; print\\('OPENROUTER_API_KEY configured:', bool\\(os.getenv\\('OPENROUTER_API_KEY'\\)\\)\\)\")",
+      "Bash(node e2e/test-ai-chat.js)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":8000\")"
     ]
   }
 }

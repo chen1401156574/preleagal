@@ -25,7 +25,7 @@ export interface NDAPayload {
 // 渲染表格的辅助函数
 export function renderTable(data: NDAPayload): string {
   const emptyValue = '_';
-  return `|| **PARTY 1** | **PARTY 2** |
+  return `| | **PARTY 1** | **PARTY 2** |
 |:---|:----:|:----:|
 |Signature|${data.party1Signature || emptyValue}|${data.party2Signature || emptyValue}|
 |Print Name|${data.party1Name || emptyValue}|${data.party2Name || emptyValue}|
@@ -37,41 +37,29 @@ export function renderTable(data: NDAPayload): string {
 
 // Side-by-Side 渲染器：生成左侧表格 + 文档预览的 HTML
 export function renderPreviewDocument(data: NDAPayload, showTable: boolean = false): string {
-  const mndaTermText = data.mndaTerm === '1year' ? `1 year` : `Indefinite`;
-  const confidentialityText = data.confidentialityTerm === '1year' ? `1 year` : `In perpetuity`;
+  const normalizedMndaTerm = (data.mndaTermValue || '').trim();
+  const mndaTermText = normalizedMndaTerm ? (isNaN(Number(normalizedMndaTerm)) ? normalizedMndaTerm : `${normalizedMndaTerm} year(s)`) : '______';
+
+  const normalizedConfTerm = (data.confidentialityTermValue || '').trim();
+  const confidentialityText = normalizedConfTerm ? (isNaN(Number(normalizedConfTerm)) ? normalizedConfTerm : `${normalizedConfTerm} year(s)`) : '______';
 
   let coverPage = `# Mutual Non-Disclosure Agreement
 
 ## USING THIS MUTUAL NON-DISCLOSURE AGREEMENT
 
-> This Mutual Non-Disclosure Agreement (the"MNDA") consists of: (1) this Cover Page and (2) the Common Paper Mutual NDA Standard Terms Version 1.0 ("Standard Terms") identical to those posted at [commonpaper.com/standards/mutual-nda/1.0](https://commonpaper.com/standards/mutual-nda/1.0). Any modifications of the Standard Terms should be made on the Cover Page, which will control over conflicts with the Standard Terms.
+> This Mutual Non-Disclosure Agreement (the "MNDA") consists of: (1) this Cover Page and (2) the Common Paper Mutual NDA Standard Terms Version 1.0 ("Standard Terms") identical to those posted at [commonpaper.com/standards/mutual-nda/1.0](https://commonpaper.com/standards/mutual-nda/1.0). Any modifications of the Standard Terms should be made on the Cover Page, which will control over conflicts with the Standard Terms.
 
 ---
 
-### Purpose
-
-${data.purpose || '______'}
-
-### Effective Date
-
-${data.effectiveDate || '______'}
-
-### MNDA Term
-
-${mndaTermText}
-
-### Term of Confidentiality
-
-${confidentialityText}
-
-### Governing Law & Jurisdiction
-
-- **Governing Law**: ${data.governingLaw || '______'}
-- **Jurisdiction**: ${data.jurisdiction || '______'}
-
-### MNDA Modifications
-
-*None*
+| | |
+|:---|:---|
+| **Purpose** | ${data.purpose || '______'} |
+| **Effective Date** | ${data.effectiveDate || '______'} |
+| **MNDA Term** | ${mndaTermText} |
+| **Term of Confidentiality** | ${confidentialityText} |
+| **Governing Law** | ${data.governingLaw || '______'} |
+| **Jurisdiction** | ${data.jurisdiction || '______'} |
+| **MNDA Modifications** | *None* |
 
 ---
 

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NDAPayload, renderPreviewDocument } from '@/utils/templateEngine';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -14,6 +15,7 @@ interface Message {
 const CRITICAL_FIELDS = [
   'purpose',
   'effectiveDate',
+  'mndaTermValue',
   'governingLaw',
   'jurisdiction',
   'party1Name',
@@ -30,6 +32,11 @@ interface ChatResponse {
   missingFields?: string[];
 }
 
+interface StepTemplate {
+  label: string;
+  template: string;
+}
+
 export default function ChatInterface() {
   const { user, token, logout } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -37,11 +44,11 @@ export default function ChatInterface() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<NDAPayload>({
     purpose: '',
-    effectiveDate: new Date().toISOString().split('T')[0],
-    mndaTerm: '1year',
-    mndaTermValue: '1',
-    confidentialityTerm: '1year',
-    confidentialityTermValue: '1',
+    effectiveDate: '',
+    mndaTerm: '1year', // Keeping type compatibility but value is driven by mndaTermValue
+    mndaTermValue: '',
+    confidentialityTerm: '1year', // Keeping type compatibility
+    confidentialityTermValue: '',
     governingLaw: '',
     jurisdiction: '',
     party1Name: '',
@@ -86,6 +93,8 @@ export default function ChatInterface() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    // Keep chat guidance conversational; don't keep old bulk warnings while user is answering.
+    setWarningMessages([]);
 
     try {
       const response = await fetch('http://localhost:8000/api/chat', {
@@ -114,10 +123,6 @@ export default function ChatInterface() {
         }));
       }
 
-      // Handle missing fields warning
-      if (data.missingFields && data.missingFields.length > 0) {
-        setWarningMessages([getMissingFieldsWarning(data.missingFields)]);
-      }
     } catch (err) {
       console.error('Chat error:', err);
       setMessages(prev => [...prev, {
@@ -133,6 +138,7 @@ export default function ChatInterface() {
     const fieldNames: Record<string, string> = {
       purpose: 'business purpose (商业目的)',
       effectiveDate: 'effective date (生效日期)',
+      mndaTermValue: 'MNDA term in years (生效时段/年限)',
       governingLaw: 'governing law (管辖法律)',
       jurisdiction: 'jurisdiction (管辖法院)',
       party1Name: 'Party 1 name (甲方姓名)',
@@ -149,6 +155,57 @@ export default function ChatInterface() {
       return `Please provide the missing information: ${missing[0]}\n请提供缺失的信息：${missing[0]}`;
     }
     return `Please provide the missing information:\n- ${missing.join('\n- ')}\n\n请提供缺失的信息:\n- ${missing.join('\n- ')}`;
+  };
+
+  const getCurrentStepTemplate = (): StepTemplate | null => {
+    const hasValue = (field: keyof NDAPayload) => Boolean(formData[field]?.trim());
+
+    if (!hasValue('purpose')) {
+      return {
+        label: '当前步骤：商业目的',
+        template: '商业目的：评估合作 / 技术交流 / 项目尽调'
+      };
+    }
+
+    if (!hasValue('party1Company') || !hasValue('party1Name') || !hasValue('party2Company') || !hasValue('party2Name')) {
+      return {
+        label: '当前步骤：双方公司与姓名',
+        template: '甲方公司：XXX；甲方姓名：XXX；乙方公司：XXX；乙方姓名：XXX'
+      };
+    }
+
+    if (!hasValue('effectiveDate')) {
+      return {
+        label: '当前步骤：生效日期',
+        template: '生效日期：2026-04-22（YYYY-MM-DD）'
+      };
+    }
+
+    if (!hasValue('mndaTermValue')) {
+      return {
+        label: '当前步骤：生效时段',
+        template: '生效时段：3 years（或 3 yrs / 3 年）'
+      };
+    }
+
+    if (!hasValue('governingLaw') || !hasValue('jurisdiction')) {
+      return {
+        label: '当前步骤：管辖法与法院',
+        template: '管辖法律：Delaware；管辖法院：New York County Court'
+      };
+    }
+
+    if (!hasValue('party1Address') || !hasValue('party2Address')) {
+      return {
+        label: '当前步骤：双方地址',
+        template: '甲方地址：XXX；乙方地址：XXX'
+      };
+    }
+
+    return {
+      label: '当前步骤：信息已完整',
+      template: '可直接点击 Download PDF 下载文档'
+    };
   };
 
   const handleDownloadPDF = async () => {
@@ -188,6 +245,13 @@ export default function ChatInterface() {
 
   // Check if all critical fields are filled
   const isReadyForDownload = CRITICAL_FIELDS.every(f => formData[f as keyof NDAPayload]?.trim());
+  const currentStepTemplate = getCurrentStepTemplate();
+  const previewHighlights = [
+    { label: '生效日期', value: formData.effectiveDate || '未填写' },
+    { label: '生效时段', value: formData.mndaTermValue ? `${formData.mndaTermValue} year(s)` : '未填写' },
+    { label: '管辖法', value: formData.governingLaw || '未填写' },
+    { label: '管辖法院', value: formData.jurisdiction || '未填写' },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -246,7 +310,7 @@ export default function ChatInterface() {
       <main className="flex-1 flex overflow-hidden">
         {/* Left: Chat Area */}
         <div className="w-full lg:w-1/2 flex flex-col bg-white border-r">
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-scroll p-6 pr-3 space-y-6 [scrollbar-width:thin] [scrollbar-color:#94a3b8_#e2e8f0]">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
@@ -290,6 +354,12 @@ export default function ChatInterface() {
                 Send
               </button>
             </form>
+            {currentStepTemplate && (
+              <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p className="text-xs font-semibold text-slate-600">{currentStepTemplate.label}</p>
+                <p className="mt-1 text-xs text-slate-500 whitespace-pre-wrap">{currentStepTemplate.template}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -315,10 +385,31 @@ export default function ChatInterface() {
               {pdfLoading ? 'Generating...' : 'Download PDF'}
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 md:p-8">
-            <div className="max-w-[800px] mx-auto bg-white shadow-lg rounded-xl p-6 md:p-10 min-h-full">
-              <div className="prose prose-slate max-w-none">
-                <ReactMarkdown>{renderPreviewDocument(formData, true)}</ReactMarkdown>
+          <div className="flex-1 overflow-y-scroll p-4 md:p-8 bg-[#E5E7EB] [scrollbar-width:thin] [scrollbar-color:#94a3b8_#e2e8f0]">
+            <div className="max-w-[800px] mx-auto">
+              <div className="bg-white shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-slate-200 min-h-[1056px] w-full px-8 py-12 md:px-16 md:py-20 mb-8 mx-auto relative group">
+                {/* Visual "Paper" fold/binding effect on the left edge if desired, or just clean white */}
+                <div className="absolute top-0 left-0 bottom-0 w-1 bg-gradient-to-r from-slate-200 to-transparent opacity-50"></div>
+                
+                <div className="prose prose-slate prose-sm md:prose-base max-w-none 
+                  prose-headings:font-bold prose-headings:text-slate-900 
+                  prose-h1:text-center prose-h1:text-2xl prose-h1:mb-8 prose-h1:uppercase prose-h1:tracking-wide
+                  prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:border-b prose-h2:border-slate-200 prose-h2:pb-2
+                  prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3
+                  prose-p:text-slate-700 prose-p:leading-relaxed prose-p:text-justify
+                  prose-li:text-slate-700
+                  prose-table:w-full prose-table:border-collapse prose-table:mt-8 prose-table:mb-8
+                  prose-th:border prose-th:border-slate-300 prose-th:bg-slate-50 prose-th:px-4 prose-th:py-3 prose-th:text-left prose-th:font-semibold prose-th:text-slate-900
+                  prose-td:border prose-td:border-slate-300 prose-td:px-4 prose-td:py-3 prose-td:text-slate-700
+                  prose-strong:text-slate-900 prose-strong:font-bold
+                  prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                  prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:text-slate-700 prose-blockquote:not-italic prose-blockquote:rounded-r-lg
+                  prose-hr:my-8 prose-hr:border-slate-300
+                ">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {renderPreviewDocument(formData, true)}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           </div>

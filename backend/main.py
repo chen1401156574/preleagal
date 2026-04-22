@@ -51,8 +51,10 @@ class Template(Base):
     guided_steps = Column(Text)
 
 
-# Initialize template database
-Base.metadata.create_all(bind=template_engine)
+# Initialize databases (Moved to bottom of models to ensure all tables are registered)
+def init_db():
+    Base.metadata.create_all(bind=template_engine)
+    Base.metadata.create_all(bind=engine)
 
 # Global registry instances
 db_registry: Optional[TemplateDatabaseRegistry] = None
@@ -68,7 +70,16 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-Base.metadata.create_all(bind=engine)
+# Document Model
+class Document(Base):
+    __tablename__ = "documents"
+    id = Column(Integer, primary_key=True, index=True)
+    user_email = Column(String, nullable=False, index=True)
+    template_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    fields = Column(Text, nullable=False)  # JSON string
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # API Models
 class UserCreate(BaseModel):
@@ -152,7 +163,48 @@ class TemplateUpdate(BaseModel):
     guided_steps: Optional[List[List[str]]] = None
 
 
+# Document API Models
+class DocumentCreate(BaseModel):
+    template_id: str
+    title: str
+    fields: Dict[str, Any]
+
+
+class DocumentResponse(BaseModel):
+    id: int
+    user_email: str
+    template_id: str
+    title: str
+    fields: Dict[str, Any]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def model_validate(cls, obj, **kwargs):
+        """Custom validation to handle JSON string to dict conversion."""
+        if hasattr(obj, 'fields') and isinstance(obj.fields, str):
+            try:
+                # Convert the SQLAlchemy object to a dict first
+                data = {
+                    "id": obj.id,
+                    "user_email": obj.user_email,
+                    "template_id": obj.template_id,
+                    "title": obj.title,
+                    "fields": json.loads(obj.fields),
+                    "created_at": obj.created_at,
+                    "updated_at": obj.updated_at
+                }
+                return cls(**data)
+            except Exception as e:
+                print(f"Error parsing document fields: {e}")
+        return super().model_validate(obj, **kwargs)
+
+
 # FastAPI app
+init_db()
 app = FastAPI(title="Prelegal API", version="2.0.0")
 
 # CORS middleware
@@ -200,11 +252,24 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def get_current_user_header(token: str = Header(None), db: Session = Depends(get_db)):
-    if token is None:
+def get_current_user_header(
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get the current user from the token. 
+    Supports both standard 'Authorization: Bearer <token>' and custom 'token' header.
+    """
+    final_token = token
+    if not final_token and authorization and authorization.startswith("Bearer "):
+        final_token = authorization.split(" ")[1]
+
+    if not final_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(final_token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -354,3 +419,102 @@ async def search_templates(
     registry = TemplateDatabaseRegistry(template_db)
     templates = registry.search_templates(q)
     return {"templates": templates, "query": q}
+
+
+# Document Management API Endpoints
+@app.get("/api/documents")
+async def list_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_header)
+):
+    """Get all documents for the current user."""
+    documents = db.query(Document).filter(Document.user_email == current_user.email).order_by(Document.created_at.desc()).all()
+    return {"documents": [DocumentResponse.model_validate(d) for d in documents]}
+
+
+@app.get("/api/documents/{document_id}")
+async def get_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_header)
+):
+    """Get a specific document by ID."""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_email == current_user.email
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"document": DocumentResponse.model_validate(document)}
+
+
+@app.post("/api/documents")
+async def create_document(
+    document_data: DocumentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_header)
+):
+    """Create a new document."""
+    new_document = Document(
+        user_email=current_user.email,
+        template_id=document_data.template_id,
+        title=document_data.title,
+        fields=json.dumps(document_data.fields)
+    )
+    db.add(new_document)
+    db.commit()
+    db.refresh(new_document)
+    return {"document": DocumentResponse.model_validate(new_document)}
+
+
+class DocumentUpdate(BaseModel):
+    template_id: Optional[str] = None
+    title: Optional[str] = None
+    fields: Optional[Dict[str, Any]] = None
+
+
+@app.put("/api/documents/{document_id}")
+async def update_document(
+    document_id: int,
+    document_data: DocumentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_header)
+):
+    """Update an existing document."""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_email == current_user.email
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document_data.template_id is not None:
+        document.template_id = document_data.template_id
+    if document_data.title is not None:
+        document.title = document_data.title
+    if document_data.fields is not None:
+        document.fields = json.dumps(document_data.fields)
+    document.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(document)
+    return {"document": DocumentResponse.model_validate(document)}
+
+
+@app.delete("/api/documents/{document_id}")
+async def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_header)
+):
+    """Delete a document."""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_email == current_user.email
+    ).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    db.delete(document)
+    db.commit()
+    return {"message": "Document deleted successfully"}

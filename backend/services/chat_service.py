@@ -394,26 +394,46 @@ def _latest_user_text(messages: List[Dict[str, str]]) -> str:
     return ""
 
 
+def _extract_term_years(text: str) -> Dict[str, str]:
+    """Extract years and map to appropriate fields."""
+    results = {}
+    
+    # Match "2 years", "1 year", "3 yrs", "5年", "2 year(s)" etc.
+    
+    # 1. Pattern for confidentialityTermValue (保密期限) - Check this first as it's more specific
+    conf_match = re.search(r"(?:term\s*of\s*confidentiality|confidentiality\s*term|confidentiality\s*period|保密期限|保密时间)\s*[:：]?\s*(\d{1,2})\s*(?:years?|yrs?|年|year\(s\))?(?!\w)", text, re.IGNORECASE)
+    if conf_match:
+        results["confidentialityTermValue"] = conf_match.group(1)
+        results["confidentialityTerm"] = "1year"
+    
+    # 2. Pattern for mndaTermValue (协议期限) - More specific prefixes
+    mnda_match = re.search(r"(?:term\s*of\s*agreement|agreement\s*term|contract\s*term|duration|period|协议期限|协议时间|期限)\s*[:：]?\s*(\d{1,2})\s*(?:years?|yrs?|年|year\(s\))?(?!\w)", text, re.IGNORECASE)
+    if mnda_match:
+        results["mndaTermValue"] = mnda_match.group(1)
+        results["mndaTerm"] = "1year"
+        
+    # 3. Generic "X年" match if no specific prefix found and no results yet
+    if not results:
+        generic_match = re.search(r"\b(\d{1,2})\s*(?:years?|yrs?|年|year\(s\))(?!\w)", text, re.IGNORECASE)
+        if generic_match:
+            # Default to mndaTermValue if generic
+            results["mndaTermValue"] = generic_match.group(1)
+            results["mndaTerm"] = "1year"
+
+    return results
+
+
+def _is_update_request(text: str) -> bool:
+    """Check if the user message indicates an update to existing info."""
+    update_keywords = ["改为", "修改为", "设置为", "更新为", "update", "change", "set to", "instead of"]
+    return any(kw in text.lower() for kw in update_keywords)
+
+
 def _extract_effective_date(text: str) -> Optional[str]:
+    # Match YYYY-MM-DD
     date_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
     if date_match:
         return date_match.group(1)
-    return None
-
-
-def _extract_term_years(text: str) -> Optional[str]:
-    # Match "2 years", "1 year", "3 yrs", "5年", "2 year(s)" etc.
-    # Using (?!\w) instead of \b at the end to handle cases like "year(s)" where ) is not a word char
-    year_match = re.search(r"\b(\d{1,2})\s*(?:years?|yrs?|年|year\(s\))(?!\w)", text, re.IGNORECASE)
-    if year_match:
-        return year_match.group(1)
-    
-    # Only match standalone numbers if they are explicitly prefixed with keywords
-    # to avoid picking up numbers from dates (like month "04")
-    duration_prefix_match = re.search(r"(?:duration|term|period|期限|时间|协议期限)\s*[:：]?\s*\b(\d{1,2})\b", text, re.IGNORECASE)
-    if duration_prefix_match:
-        return duration_prefix_match.group(1)
-        
     return None
 
 
@@ -486,15 +506,14 @@ def _extract_step_fields_fallback(
 
     if step_name == "effectiveDate":
         date_value = _extract_effective_date(text)
-        if date_value and "effectiveDate" in missing_fields:
+        if date_value:
             extracted["effectiveDate"] = date_value
         return extracted
 
     if step_name == "termDuration":
-        years_value = _extract_term_years(text)
-        if years_value and "mndaTermValue" in missing_fields:
-            extracted["mndaTermValue"] = years_value
-            extracted["mndaTerm"] = "1year"
+        term_results = _extract_term_years(text)
+        if term_results:
+            extracted.update(term_results)
         return extracted
 
     if step_name == "lawAndJurisdiction":
@@ -636,19 +655,39 @@ def _extract_fields_fallback_all_steps(
     messages: List[Dict[str, str]],
     template_type: str = "nda"
 ) -> Dict[str, str]:
-    snapshot = dict(current_fields or {})
-    extracted: Dict[str, str] = {}
-    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
+    """Fallback extraction when JSON extraction fails or is incomplete."""
+    if not messages:
+        return {}
+        
+    latest_user_message = next((m["content"] for m in reversed(messages) if m["role" ] == "user"), "")
+    if not latest_user_message:
+        return {}
 
-    for step_name, keys in config['guided_steps']:
-        missing = [k for k in keys if not str(snapshot.get(k, "")).strip()]
-        if not missing:
-            continue
-        step_extracted = _extract_step_fields_fallback(step_name, missing, messages, template_type)
-        if step_extracted:
-            extracted.update(step_extracted)
-            snapshot.update(step_extracted)
-    return extracted
+    all_extracted = {}
+    
+    # 1. Identify missing fields
+    critical_fields = CRITICAL_FIELDS_NDA if template_type == "nda" else []
+    optional_fields = CRITICAL_OPTIONAL_NDA if template_type == "nda" else []
+    
+    missing_critical = [f for f in critical_fields if not current_fields.get(f)]
+    missing_optional = [f for f in optional_fields if not current_fields.get(f)]
+    
+    # 2. Extract for missing fields or if it's an update request
+    is_update = _is_update_request(latest_user_message)
+    
+    # Check each "step" logic
+    steps = ["purpose", "effectiveDate", "termDuration", "parties", "governingLaw"]
+    for step in steps:
+        # If the step fields are missing OR it's an update request, try to extract
+        # We also extract if the user message matches a very specific pattern (like a date)
+        extracted = _extract_step_fields_fallback(step, missing_critical + missing_optional, messages, template_type)
+        if extracted:
+            for k, v in extracted.items():
+                # Only update if it's missing OR it's an explicit update request OR it's a date/term update
+                if k not in current_fields or is_update or k in ["effectiveDate", "mndaTermValue", "confidentialityTermValue"]:
+                    all_extracted[k] = v
+
+    return all_extracted
 
 
 def _get_openrouter_api_key() -> Optional[str]:

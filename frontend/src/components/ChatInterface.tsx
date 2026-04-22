@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { NDAPayload, renderPreviewDocument } from '@/utils/templateEngine';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import DisclaimerBanner from './DisclaimerBanner';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -46,6 +48,7 @@ interface ChatResponse {
 }
 
 export default function ChatInterface() {
+  const router = useRouter();
   const { user, token, logout } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -58,6 +61,7 @@ export default function ChatInterface() {
   const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const [leftWidth, setLeftWidth] = useState<number>(50); // percentage
   const [isResizing, setIsResizing] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Critical fields mapping based on backend services/chat_service.py
   const CRITICAL_FIELDS_CONFIG: Record<string, string[]> = {
@@ -105,6 +109,30 @@ export default function ChatInterface() {
   });
 
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('chat_messages');
+    const savedFormData = localStorage.getItem('chat_formData');
+    const savedTemplate = localStorage.getItem('chat_currentTemplate');
+
+    if (savedMessages) setMessages(JSON.parse(savedMessages));
+    if (savedFormData) setFormData(JSON.parse(savedFormData));
+    if (savedTemplate) setCurrentTemplate(savedTemplate);
+    
+    setIsInitialized(true);
+  }, []);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (isInitialized) {
+      localStorage.setItem('chat_messages', JSON.stringify(messages));
+      localStorage.setItem('chat_formData', JSON.stringify(formData));
+      localStorage.setItem('chat_currentTemplate', currentTemplate);
+    }
+  }, [messages, formData, currentTemplate, isInitialized]);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -115,20 +143,22 @@ export default function ChatInterface() {
 
   // Initialize with greeting message
   useEffect(() => {
-    if (messages.length === 0) {
+    if (isInitialized && messages.length === 0) {
       const greeting = getInitialGreeting();
       setMessages([{ role: 'assistant', content: greeting }]);
     }
-  }, []);
+  }, [isInitialized, messages.length]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   // Focus input when loading finishes
   useEffect(() => {
     if (!loading && inputRef.current) {
-      inputRef.current.focus();
+      inputRef.current.focus({ preventScroll: true });
     }
   }, [loading]);
 
@@ -155,7 +185,9 @@ export default function ChatInterface() {
   };
 
   const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -357,6 +389,69 @@ export default function ChatInterface() {
     }
   };
 
+  const handleSaveDocument = async () => {
+    setSaveLoading(true);
+    try {
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      // Generate a title based on parties or template
+      const template = templates.find(t => t.id === currentTemplate);
+      const templateName = template?.name_zh || template?.name || currentTemplate;
+      
+      // Determine party names based on template type
+      let party1 = '未命名甲方';
+      let party2 = '未命名乙方';
+      
+      if (currentTemplate === 'nda') {
+        party1 = formData.party1Name || formData.party1Company || party1;
+        party2 = formData.party2Name || formData.party2Company || party2;
+      } else if (currentTemplate === 'csa') {
+        party1 = (formData as any).serviceProvider || party1;
+        party2 = (formData as any).customer || party2;
+      } else if (currentTemplate === 'dpa') {
+        party1 = (formData as any).dataExporter || party1;
+        party2 = (formData as any).dataImporter || party2;
+      }
+      
+      const title = `${templateName} - ${party1} vs ${party2}`;
+
+      const response = await fetch('http://localhost:8000/api/documents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          template_id: currentTemplate,
+          title: title,
+          fields: formData
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save document');
+      
+      // Clear cache on successful save to prevent confusion
+      localStorage.removeItem('chat_messages');
+      localStorage.removeItem('chat_formData');
+      localStorage.removeItem('chat_currentTemplate');
+
+      setWarningMessages(['文档已成功保存！正在前往我的文档... / Document saved! Redirecting...']);
+      
+      // Delay redirect slightly to ensure user sees success message
+      setTimeout(() => {
+        router.push('/documents');
+      }, 1500);
+    } catch (err) {
+      console.error('Save error:', err);
+      setWarningMessages(['保存文档失败。 / Failed to save document.']);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   // Check if all critical fields are filled
   const isReadyForDownload = CRITICAL_FIELDS.every(f => formData[f as keyof NDAPayload]?.trim());
 
@@ -385,6 +480,12 @@ export default function ChatInterface() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/documents')}
+            className="text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+          >
+            我的文档
+          </button>
           <button
             onClick={() => setShowTemplateSelector(!showTemplateSelector)}
             className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
@@ -524,17 +625,33 @@ export default function ChatInterface() {
               </svg>
               Document Preview
             </h2>
-            <button
-              onClick={handleDownloadPDF}
-              disabled={!isReadyForDownload || pdfLoading}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm ${
-                isReadyForDownload
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              {pdfLoading ? 'Generating...' : 'Download PDF'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveDocument}
+                disabled={saveLoading}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                  saveLoading
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                {saveLoading ? 'Saving...' : '保存到我的文档'}
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={!isReadyForDownload || pdfLoading}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                  isReadyForDownload
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                {pdfLoading ? 'Generating...' : 'Download PDF'}
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-scroll p-4 md:p-8 bg-[#E5E7EB] [scrollbar-width:thin] [scrollbar-color:#94a3b8_#e2e8f0]">
             <div className="max-w-[800px] mx-auto">
@@ -560,6 +677,9 @@ export default function ChatInterface() {
                   </ReactMarkdown>
                 </div>
               </div>
+
+              {/* Disclaimer Banner */}
+              <DisclaimerBanner />
             </div>
           </div>
         </div>

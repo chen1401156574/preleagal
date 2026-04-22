@@ -102,6 +102,22 @@ function markdownToPDF(markdown: string): ArrayBuffer {
   return doc.output('arraybuffer');
 }
 
+// Add disclaimer to PDF content
+function addDisclaimerToContent(content: string, templateType: string): string {
+  const disclaimer = `
+---
+
+> **⚖️ 法律免责声明**
+>
+> 本文档由 AI 助手生成，仅供参考，不构成法律建议。请在签署前咨询专业律师进行审核。
+>
+> ---
+>
+> *${templateType} - PreLegal AI Document Generator*`;
+
+  return content + disclaimer;
+}
+
 // API route handler
 export async function POST(request: NextRequest) {
   try {
@@ -128,6 +144,9 @@ export async function POST(request: NextRequest) {
       templateType = 'NDA';
       filename = 'Mutual_NDA';
     }
+
+    // Add legal disclaimer
+    documentContent = addDisclaimerToContent(documentContent, templateType);
 
     // Convert to PDF
     const pdfBytes = markdownToPDF(documentContent);

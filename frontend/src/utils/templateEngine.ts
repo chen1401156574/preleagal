@@ -155,18 +155,18 @@ This DPA is incorporated into a main processing agreement.`;
 }
 
 // NDA Standard Terms
-export function renderNDASubjectTerms(): string {
+export function renderNDASubjectTerms(_data: NDAPayload): string {
   return `# Standard Terms
 
 1. **Introduction**. This Mutual Non-Disclosure Agreement (which incorporates these Standard Terms and the Cover Page) ("MNDA") allows each party ("Disclosing Party") to disclose or make available information in connection with discussions that (1) the Disclosing Party identifies as "confidential" or (2) should be reasonably understood as confidential due to its nature and the circumstances of its disclosure ("Confidential Information").
 
-2. **Use and Protection**. The Receiving Party shall: (a) use Confidential Information solely for the **Purpose** (${dataPurpose}__); (b) not disclose Confidential Information to third parties without prior written approval, except to employees, agents, advisors having a reasonable need to know; and (c) protect Confidential Information using at least reasonable standards of care.
+2. **Use and Protection**. The Receiving Party shall: (a) use Confidential Information solely for the **Purpose** (${_data.purpose}); (b) not disclose Confidential Information to third parties without prior written approval, except to employees, agents, advisors having a reasonable need to know; and (c) protect Confidential Information using at least reasonable standards of care.
 
 3. **Exceptions**. Obligations do not apply to information that is: (a) publicly available; (b) rightfully known prior to receipt; (c) rightfully obtained from a third party; or (d) independently developed.
 
 4. **Legal Disclosure**. Required disclosures to authorities may be made with reasonable advance notice to the Disclosing Party.
 
-5. **Term and Termination**. This MNDA commences on the **Effective Date** (${data.effectiveDate__}) and expires at the end of the **MNDA Term** (${termText__}). Obligations survive for the **Term of Confidentiality** (${confText__}).
+5. **Term and Termination**. This MNDA commences on the **Effective Date** (${_data.effectiveDate}) and expires at the end of the **MNDA Term** (${_data.mndaTermValue || '______'}). Obligations survive for the **Term of Confidentiality** (${_data.confidentialityTermValue || '______'}).
 
 6. **Return or Destruction**. Upon termination, the Receiving Party will cease using Confidential Information and destroy or return it.
 
@@ -174,7 +174,7 @@ export function renderNDASubjectTerms(): string {
 
 8. **Disclaimer**. ALL CONFIDENTIAL INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTIES.
 
-9. **Governing Law**. This MNDA is governed by the laws of **${data.governingLaw__}**. Disputes must be brought in **${data.jurisdiction__}**.
+9. **Governing Law**. This MNDA is governed by the laws of **${_data.governingLaw}**. Disputes must be brought in **${_data.jurisdiction}**.
 
 ---
 

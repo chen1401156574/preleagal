@@ -14,8 +14,8 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # Using GPT-OSS-120B via OpenRouter
 MODEL = "openai/gpt-oss-120b"
 
-# Critical fields that must be filled before PDF download
-CRITICAL_FIELDS = [
+# NDA default critical fields
+CRITICAL_FIELDS_NDA = [
     "purpose",
     "effectiveDate",
     "mndaTermValue",
@@ -29,7 +29,7 @@ CRITICAL_FIELDS = [
     "party2Address"
 ]
 
-OPTIONAL_FIELDS = [
+CRITICAL_OPTIONAL_NDA = [
     "mndaTerm",
     "confidentialityTerm",
     "confidentialityTermValue",
@@ -39,123 +39,172 @@ OPTIONAL_FIELDS = [
     "party2Signature",
 ]
 
-GUIDED_STEPS: List[Tuple[str, List[str]]] = [
-    ("purpose", ["purpose"]),
-    ("parties", ["party1Company", "party1Name", "party2Company", "party2Name"]),
-    ("effectiveDate", ["effectiveDate"]),
-    ("termDuration", ["mndaTermValue"]),
-    ("lawAndJurisdiction", ["governingLaw", "jurisdiction"]),
-    ("addresses", ["party1Address", "party2Address"]),
+CSA_CRITICAL_FIELDS = [
+    "purpose",
+    "effectiveDate",
+    "serviceProvider",
+    "serviceProviderContact",
+    "customer",
+    "customerContact",
+    "serviceDescription",
+    "serviceTerm",
+    "governingLaw",
+    "paymentTerms"
 ]
 
-SYSTEM_PROMPT = """You are an expert legal assistant specialized in Mutual Non-Disclosure Agreements (MNDA).
-Your goal is to help the user fill out an MNDA by conducting a natural conversation and extracting information.
+CSA_OPTIONAL_FIELDS = [
+    "serviceLevel",
+    "dataLocation",
+    "securityStandards",
+    "party1Title",
+    "party2Title",
+]
 
-CRITICAL NDA FIELDS (must collect before PDF generation):
-1. purpose: Business purpose of the agreement
-2. effectiveDate: Agreement start date (YYYY-MM-DD format)
-3. mndaTermValue: Agreement duration in years (e.g., 3)
-4. governingLaw: State governing the agreement
-5. jurisdiction: Court jurisdiction location
-6. party1Name: Party 1 representative name
-7. party1Company: Party 1 company name
-8. party1Address: Party 1 notice address
-9. party2Name: Party 2 representative name
-10. party2Company: Party 2 company name
-11. party2Address: Party 2 notice address
+DPA_CRITICAL_FIELDS = [
+    "purpose",
+    "effectiveDate",
+    "dataExporter",
+    "dataExporterContact",
+    "dataImporter",
+    "dataImporterContact",
+    "dataCategories",
+    "processingPurpose",
+    "dataTransfers",
+    "governingLaw"
+]
 
-OPTIONAL FIELDS (can default later):
-- mndaTerm: '1year' or 'continues'
-- mndaTermValue: e.g., '1'
-- confidentialityTerm: '1year' or 'perpetuity'
-- confidentialityTermValue: e.g., '1'
-- party1Title: Party 1 representative title
-- party2Title: Party 2 representative title
-- party1Signature: Always leave empty - user types manually
-- party2Signature: Always leave empty - user types manually
+DPA_OPTIONAL_FIELDS = [
+    "securityMeasures",
+    "subProcessors",
+    "dataRetention",
+    "party1Title",
+    "party2Title",
+]
 
-GUIDELINES:
-1. Be professional, concise, and helpful
-2. Support BOTH English and Chinese - respond in the language the user uses
-3. Conduct a natural conversation - ask ONE question at a time when info is missing
-4. When user provides info, extract it and confirm in your reply
-5. Track which critical fields have been provided across the conversation
-6. When all critical fields are complete, invite user to download PDF
-7. For signature fields: ALWAYS leave empty and tell user to add manually
-8. Ask for effectiveDate as YYYY-MM-DD format (e.g., 2026-04-22)
-9. Never use panic wording like "technical issue", "system error", or repeated apologies
-10. Follow this collection order strictly:
-   - purpose
-   - party1Company/party1Name + party2Company/party2Name
-   - effectiveDate
-   - mndaTermValue (ask agreement duration, e.g. 3 years)
-   - governingLaw + jurisdiction
-   - party1Address + party2Address
-
-FIRST MESSAGE (when conversation starts with no history):
-Start with a bilingual greeting in EN + ZH, then ask for the business purpose first.
-Example format: "Hello! I'll help you create a Mutual NDA. What's the business purpose?
-你好！我来帮你起草相互保密协议。请问商业目的是什么？"
-
-HOW TO ASK:
-- When asking for a missing field, explain WHY you need it briefly
-- Keep questions concise (1-2 sentences max)
-- If user mentions something vaguely, ask for clarification gently
-
-RESPONSE FORMAT:
-You MUST respond with a JSON object containing exactly two keys:
-1. "reply": Your conversational message to the user (in their language)
-2. "fields": Object containing ONLY fields newly extracted from THIS message
-
-Example 1 - Extracting party info:
-{
-  "reply": "Thank you! I've noted that your company is TechCorp A and your name is John Smith. Now, what's the business purpose for this agreement?",
-  "fields": {
-    "party1Company": "TechCorp A",
-    "party1Name": "John Smith"
-  }
+TEMPLATE_CONFIGS = {
+    "nda": {
+        "critical_fields": CRITICAL_FIELDS_NDA,
+        "optional_fields": CRITICAL_OPTIONAL_NDA,
+        "guided_steps": [
+            ("purpose", ["purpose"]),
+            ("parties", ["party1Company", "party1Name", "party2Company", "party2Name"]),
+            ("effectiveDate", ["effectiveDate"]),
+            ("termDuration", ["mndaTermValue"]),
+            ("lawAndJurisdiction", ["governingLaw", "jurisdiction"]),
+            ("addresses", ["party1Address", "party2Address"]),
+        ]
+    },
+    "csa": {
+        "critical_fields": CSA_CRITICAL_FIELDS,
+        "optional_fields": CSA_OPTIONAL_FIELDS,
+        "guided_steps": [
+            ("purpose", ["purpose"]),
+            ("parties", ["serviceProvider", "customer"]),
+            ("serviceDescription", ["serviceDescription"]),
+            ("serviceTerm", ["serviceTerm"]),
+            ("effectiveDate", ["effectiveDate"]),
+            ("governingLaw", ["governingLaw"]),
+            ("paymentTerms", ["paymentTerms"]),
+            ("contacts", ["serviceProviderContact", "customerContact"]),
+        ]
+    },
+    "dpa": {
+        "critical_fields": DPA_CRITICAL_FIELDS,
+        "optional_fields": DPA_OPTIONAL_FIELDS,
+        "guided_steps": [
+            ("purpose", ["purpose"]),
+            ("parties", ["dataExporter", "dataImporter"]),
+            ("dataCategories", ["dataCategories"]),
+            ("processingPurpose", ["processingPurpose"]),
+            ("dataTransfers", ["dataTransfers"]),
+            ("effectiveDate", ["effectiveDate"]),
+            ("governingLaw", ["governingLaw"]),
+            ("contacts", ["dataExporterContact", "dataImporterContact"]),
+        ]
+    }
 }
 
-Example 2 - Asking for missing critical field:
-{
-  "reply": "I have most of the information. To complete the agreement, I need to know which state's laws will govern this NDA. Please provide the governing law (e.g., 'Delaware').\n\n我已经记录了大部分信息。为完成协议，我需要知道这份协议由哪个州的法律管辖。请提供管辖法律（例如：'Delaware'）。",
-  "fields": {}
-}
 
-Example 3 - All fields complete, invite download:
-{
-  "reply": "Great! I've collected all the required information. You can now download the PDF. Don't forget to add the signatures manually in the signature fields!\n\n太好了！我已经收集了所有必需信息。现在可以下载 PDF 了。别忘了在签名栏手动添加签名！",
-  "fields": {}
-}
+def load_system_prompt(template_type: str = "nda") -> str:
+    """Load system prompt for specific template type."""
+    prompts_path = PROJECT_ROOT / "backend" / "prompts"
+    prompt_file_map = {
+        "nda": "nda_system_prompt.txt",
+        "csa": "csa_system_prompt.txt",
+        "dpa": "dpa_system_prompt.txt"
+    }
+    prompt_file = prompt_file_map.get(template_type, "nda_system_prompt.txt")
+    prompt_path = prompts_path / prompt_file
+    if prompt_path.exists():
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    return get_default_nda_prompt()
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no explanations. Just the JSON object with 'reply' and 'fields' keys."""
+
+def get_default_nda_prompt() -> str:
+    return """你是一位专门负责相互保密协议（MNDA）的资深法律助手。
+你的目标是通过自然对话和提取信息，帮助用户填写 MNDA。
+
+必须收集的 NDA 关键字段（生成 PDF 前必须完成）：
+1. purpose: 协议的商业目的
+2. effectiveDate: 协议生效日期（格式：YYYY-MM-DD）
+3. mndaTermValue: 协议期限（以年为单位，例如：3）
+4. governingLaw: 协议管辖法律所属州/省
+5. jurisdiction: 法院管辖地
+6. party1Name: 甲方代表人姓名
+7. party1Company: 甲方公司名称
+8. party1Address: 甲方通知地址
+9. party2Name: 乙方代表人姓名
+10. party2Company: 乙方公司名称
+11. party2Address: 乙方通知地址
+
+可选字段（后续可默认）：
+- mndaTerm: '1year' 或 'continues'
+- confidentialityTerm: '1year' 或 'perpetuity'
+- party1Title: 甲方代表人职位
+- party2Title: 乙方代表人职位
+- party1Signature: 始终保持为空 - 由用户手动签署
+- party2Signature: 始终保持为空 - 由用户手动签署
+
+准则：
+1. 保持专业、简洁且乐于助人
+2. 始终使用中文回答
+3. 进行自然对话 - 当还有关键字段未收集时，你必须在回复的末尾明确提出一个关于缺失字段的后续问题。一次只问一个问题。
+4. 当用户提供信息时，在回复中确认已提取的信息
+5. 跟踪对话中已提供的关键字段
+6. 当所有关键字段收集完毕时，邀请用户下载 PDF
+7. 签名栏：始终保持为空，并告知用户需手动签署
+8. 要求 effectiveDate 格式为 YYYY-MM-DD（例如：2026-04-22）
+9. 严禁使用“技术问题”、“系统错误”或反复道歉等词汇
+
+首条消息（对话开始且无历史记录时）：
+以中文问候开始，询问商业目的。
+
+响应格式：
+你必须返回一个包含两个键的 JSON 对象：
+1. "reply": 你对用户的对话消息（中文）
+2. "fields": 仅包含从当前消息中新提取的字段的对象
+
+仅返回有效的 JSON。不要包含 Markdown、代码块或任何解释。"""
+
 
 def _detect_language(messages: List[Dict[str, str]]) -> str:
     def has_zh(text: str) -> bool:
-        return any("\u4e00" <= ch <= "\u9fff" for ch in text)
-
-    def has_en_letters(text: str) -> bool:
-        return bool(re.search(r"[A-Za-z]", text))
+        return any("一" <= ch <= "鿿" for ch in text)
 
     user_messages = [m.get("content", "") for m in messages if m.get("role") == "user"]
     if not user_messages:
-        return "en"
+        return "zh"
 
-    # Prefer the latest message when it clearly indicates language.
     latest = user_messages[-1]
     if has_zh(latest):
         return "zh"
-    if has_en_letters(latest):
-        return "en"
 
-    # If latest is neutral (e.g. only date/numbers), fallback to earlier user language.
     for content in reversed(user_messages[:-1]):
         if has_zh(content):
             return "zh"
-        if has_en_letters(content):
-            return "en"
 
-    return "en"
+    return "zh"
 
 
 def _safe_parse_llm_json(content: Any) -> Optional[Dict[str, Any]]:
@@ -171,7 +220,6 @@ def _safe_parse_llm_json(content: Any) -> Optional[Dict[str, Any]]:
     except json.JSONDecodeError:
         pass
 
-    # Fallback: some providers may prepend/append text around JSON.
     match = re.search(r"\{[\s\S]*\}", content)
     if not match:
         return None
@@ -185,11 +233,12 @@ def _safe_parse_llm_json(content: Any) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _normalize_fields(fields: Any) -> Dict[str, str]:
+def _normalize_fields(fields: Any, template_type: str = "nda") -> Dict[str, str]:
     if not isinstance(fields, dict):
         return {}
 
-    allowed = set(CRITICAL_FIELDS + OPTIONAL_FIELDS)
+    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
+    allowed = set(config['critical_fields'] + config['optional_fields'])
     normalized: Dict[str, str] = {}
     for key, value in fields.items():
         if key not in allowed:
@@ -202,56 +251,140 @@ def _normalize_fields(fields: Any) -> Dict[str, str]:
     return normalized
 
 
-def _next_step_missing(all_fields: Dict[str, str]) -> Tuple[Optional[str], List[str]]:
-    for step_name, keys in GUIDED_STEPS:
+def _next_step_missing(all_fields: Dict[str, str], template_type: str = "nda") -> Tuple[Optional[str], List[str]]:
+    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
+    for step_name, keys in config['guided_steps']:
         missing = [k for k in keys if not str(all_fields.get(k, "")).strip()]
         if missing:
             return step_name, missing
     return None, []
 
 
-def _build_guided_question(step_name: Optional[str], missing_fields: List[str], lang: str) -> str:
+def _get_template_name(template_type: str, lang: str = "zh") -> str:
+    from services.template_service import template_registry
+    template = template_registry.get_template(template_type)
+    if template:
+        return template.get('name_zh' if lang == "zh" else 'name', template['name'])
+    return "协议" if lang == "zh" else "Agreement"
+
+
+def _build_guided_question(step_name: Optional[str], missing_fields: List[str], lang: str, template_type: str = "nda") -> str:
     if step_name is None:
-        if lang == "zh":
-            return "信息已收集完整，现在可以下载 PDF。签名栏请手动填写。"
-        return "All required information is collected. You can download the PDF now. Please add signatures manually."
+        return "信息已收集完整，现在可以下载 PDF。签名栏请手动填写。"
+
+    template_name = _get_template_name(template_type, "zh")
 
     if step_name == "purpose":
-        if lang == "zh":
-            return "请先告诉我这份 NDA 的商业目的。\n可直接按这个模板回复：商业目的：评估合作/技术交流/项目尽调。\n你也可以一次性把后续字段按模板一起发，我会一起识别。"
-        return "First, please share the business purpose of this NDA.\nTemplate: Business purpose: partnership evaluation / technical discussion / project due diligence.\nYou can also provide multiple remaining fields in one message, and I will parse them together."
+        return f"请先告诉我这份{template_name}的商业目的。\n可直接回复：商业目的：评估合作/技术交流/项目尽调。\n您也可以一次性提供多个后续字段。"
 
     if step_name == "parties":
-        if lang == "zh":
-            return "接下来请提供双方公司和签署人姓名。\n模板：甲方公司：XXX；甲方姓名：XXX；乙方公司：XXX；乙方姓名：XXX。\n也可一次性补充生效日期、生效时段、管辖法/法院和地址。"
-        return "Next, please provide both sides' company names and signer names.\nTemplate: Party1 Company: XXX; Party1 Name: XXX; Party2 Company: XXX; Party2 Name: XXX.\nYou may also include effective date, term duration, law/jurisdiction, and addresses in the same message."
+        if template_type == "nda":
+            return "接下来请提供双方公司的基本信息。\n模板：甲方公司：XXX；甲方姓名：XXX；乙方公司：XXX；乙方姓名：XXX。"
+        elif template_type == "csa":
+            return "接下来请提供双方公司的信息。\n模板：服务商（甲方）：XXX；客户（乙方）：XXX。"
+        elif template_type == "dpa":
+            return "接下来请提供双方公司的信息。\n模板：数据输出方（甲方）：XXX；数据输入方（乙方）：XXX。"
+        return "接下来请提供双方公司的基本信息。"
 
     if step_name == "effectiveDate":
-        if lang == "zh":
-            return "请提供生效日期，格式为 YYYY-MM-DD。\n模板：生效日期：2026-04-22。\n可同时补充：生效时段、管辖法/法院、双方地址。"
-        return "Please provide the effective date in YYYY-MM-DD format.\nTemplate: Effective date: 2026-04-22.\nYou can also include term duration, law/jurisdiction, and addresses together."
-
-    if step_name == "lawAndJurisdiction":
-        if lang == "zh":
-            return "请提供管辖法律和管辖法院地点。\n模板：管辖法律：Delaware；管辖法院：New York County Court。\n可同时补充双方地址。"
-        return "Please provide the governing law and jurisdiction (court location).\nTemplate: Governing law: Delaware; Jurisdiction: New York County Court.\nYou may include both party addresses in the same message."
+        return "请提供生效日期，格式为 YYYY-MM-DD。\n模板：生效日期：2026-04-22。"
 
     if step_name == "termDuration":
-        if lang == "zh":
-            return "请提供协议生效时段（年限）。\n模板：生效时段：3 years（或 3 yrs / 3 年）。"
-        return "Please provide the agreement term duration in years.\nTemplate: Term duration: 3 years."
+        return "请提供协议期限（年数）。\n模板：协议期限：2年。"
 
-    if lang == "zh":
+    if step_name == "lawAndJurisdiction":
+        return "请提供管辖法律和管辖法院。\n模板：管辖法律：Delaware；管辖法院：Delaware courts。"
+
+    if step_name == "addresses":
         return "最后请提供双方通知地址。\n模板：甲方地址：XXX；乙方地址：XXX。"
-    return "Finally, please provide both notice addresses.\nTemplate: Party1 Address: XXX; Party2 Address: XXX."
+
+    if step_name == "serviceDescription":
+        return "请描述您将提供的云服务。\n模板：服务描述：提供云存储和计算服务，包括数据备份功能。"
+
+    if step_name == "serviceTerm":
+        return "请说明服务期限。\n模板：服务期限：2 年（或 24 months）。"
+
+    if step_name == "governingLaw":
+        return "请提供管辖法律（如：Delaware）。\n模板：管辖法律：Delaware。"
+
+    if step_name == "paymentTerms":
+        return "请提供付款条款。\n模板：付款条款：monthly（月付）/net-30。"
+
+    if step_name == "dataCategories":
+        return "请说明将处理的个人数据类别。\n模板：数据类别：用户姓名、邮箱地址、使用记录。"
+
+    if step_name == "processingPurpose":
+        return "请说明数据处理的目的。\n模板：处理目的：提供服务、数据分析、客户支持。"
+
+    if step_name == "dataTransfers":
+        return "个人数据是否会转移到欧盟经济区 (EEA) 之外？(是/否)\n如转移，请说明目的地国家。"
+
+    if step_name == "contacts":
+        return "最后请提供双方的联系信息。\n模板：联系人：info@example.com"
+
+    return "请继续提供剩余的信息以完成协议。"
 
 
 def _build_acknowledgement(new_fields: Dict[str, str], lang: str) -> str:
     if not new_fields:
         return ""
-    if lang == "zh":
-        return "已记录你刚提供的信息。"
-    return "Got it, I've recorded the details you just shared."
+    
+    field_names_zh = {
+        "purpose": "商业目的",
+        "effectiveDate": "生效日期",
+        "mndaTermValue": "协议期限",
+        "governingLaw": "管辖法律",
+        "jurisdiction": "管辖法院",
+        "party1Name": "甲方姓名",
+        "party1Company": "甲方公司",
+        "party1Address": "甲方地址",
+        "party2Name": "乙方姓名",
+        "party2Company": "乙方公司",
+        "party2Address": "乙方地址"
+    }
+    
+    captured = [field_names_zh.get(k, k) for k in new_fields.keys() if k in field_names_zh]
+    if captured:
+        return f"已记录您提供的{', '.join(captured)}。"
+    return "已记录您提供的信息。"
+
+
+def _find_numeric_name_issues(text: str, template_type: str = "nda") -> List[str]:
+    """Detect numeric-only names without relaxing extraction regex."""
+    if template_type == "nda":
+        checks = [
+            ("甲方姓名", r"(?:party\s*1\s*name|甲方姓名|甲方代表人)\s*[:：]?\s*([0-9]+)\b"),
+            ("乙方姓名", r"(?:party\s*2\s*name|乙方姓名|乙方代表人)\s*[:：]?\s*([0-9]+)\b"),
+        ]
+    elif template_type == "csa":
+        checks = [
+            ("服务商联系人", r"(?:provider\s*contact|服务商联系人|甲方姓名|甲方代表人)\s*[:：]?\s*([0-9]+)\b"),
+            ("客户联系人", r"(?:customer\s*contact|客户联系人|乙方姓名|乙方代表人)\s*[:：]?\s*([0-9]+)\b"),
+        ]
+    elif template_type == "dpa":
+        checks = [
+            ("输出方联系人", r"(?:exporter\s*contact|输出方联系人|甲方姓名|甲方代表人)\s*[:：]?\s*([0-9]+)\b"),
+            ("输入方联系人", r"(?:importer\s*contact|输入方联系人|乙方姓名|乙方代表人)\s*[:：]?\s*([0-9]+)\b"),
+        ]
+    else:
+        checks = []
+
+    issues: List[str] = []
+    for label, pattern in checks:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            issues.append(f"{label}“{m.group(1)}”")
+    return issues
+
+
+def _build_numeric_name_hint(issues: List[str]) -> str:
+    if not issues:
+        return ""
+    issue_text = "、".join(issues)
+    return (
+        f"{issue_text}看起来不是有效姓名（姓名不能为纯数字）。\n"
+        "请提供真实姓名，例如：甲方姓名：张三；乙方姓名：李四。"
+    )
 
 
 def _latest_user_text(messages: List[Dict[str, str]]) -> str:
@@ -269,29 +402,87 @@ def _extract_effective_date(text: str) -> Optional[str]:
 
 
 def _extract_term_years(text: str) -> Optional[str]:
-    # Handles inputs like "3 years", "3 yrs", "3年"
-    year_match = re.search(r"\b(\d{1,2})\s*(?:years?|yrs?)\b|(\d{1,2})\s*年", text, re.IGNORECASE)
+    # Match "2 years", "1 year", "3 yrs", "5年", "2 year(s)" etc.
+    # Using (?!\w) instead of \b at the end to handle cases like "year(s)" where ) is not a word char
+    year_match = re.search(r"\b(\d{1,2})\s*(?:years?|yrs?|年|year\(s\))(?!\w)", text, re.IGNORECASE)
     if year_match:
-        value = year_match.group(1) or year_match.group(2)
-        if value:
-            return value
-    # Fallback: if user only inputs a number like "3"
-    number_match = re.search(r"\b(\d{1,2})\b", text)
-    if number_match:
-        return number_match.group(1)
+        return year_match.group(1)
+    
+    # Only match standalone numbers if they are explicitly prefixed with keywords
+    # to avoid picking up numbers from dates (like month "04")
+    duration_prefix_match = re.search(r"(?:duration|term|period|期限|时间|协议期限)\s*[:：]?\s*\b(\d{1,2})\b", text, re.IGNORECASE)
+    if duration_prefix_match:
+        return duration_prefix_match.group(1)
+        
     return None
+
+
+def _is_asking_for_missing_info(text: str) -> bool:
+    """Check if the user is asking what information is still needed."""
+    patterns = [
+        r"还需要.*信息",
+        r"还需要.*什么",
+        r"还差.*什么",
+        r"缺失.*信息",
+        r"未提供.*信息",
+        r"没提供.*信息",
+        r"还有.*没填",
+        r"what.*missing",
+        r"what.*else",
+        r"information.*needed",
+        r"which.*fields"
+    ]
+    return any(re.search(p, text, re.IGNORECASE) for p in patterns)
+
+
+def _build_missing_fields_reply(merged_fields: Dict[str, str], template_type: str = "nda") -> str:
+    missing_fields = check_missing_fields(merged_fields, template_type)
+    field_names_zh = {
+        "purpose": "商业目的",
+        "effectiveDate": "生效日期",
+        "mndaTermValue": "协议期限",
+        "governingLaw": "管辖法律",
+        "jurisdiction": "管辖法院",
+        "party1Name": "甲方姓名",
+        "party1Company": "甲方公司",
+        "party1Address": "甲方地址",
+        "party2Name": "乙方姓名",
+        "party2Company": "乙方公司",
+        "party2Address": "乙方地址",
+        "serviceProvider": "服务提供商",
+        "serviceProviderContact": "服务商联系人",
+        "customer": "客户",
+        "customerContact": "客户联系人",
+        "serviceDescription": "服务描述",
+        "serviceTerm": "服务期限",
+        "paymentTerms": "付款条款",
+        "dataExporter": "数据输出方",
+        "dataExporterContact": "输出方联系人",
+        "dataImporter": "数据输入方",
+        "dataImporterContact": "输入方联系人",
+        "dataCategories": "数据类别",
+        "processingPurpose": "处理目的",
+        "dataTransfers": "数据转移",
+    }
+
+    missing_names = [field_names_zh.get(f, f) for f in missing_fields]
+    if missing_names:
+        return f"您目前还需要提供以下信息：\n- " + "\n- ".join(missing_names)
+    return "所有必要信息已收集完整，您可以下载 PDF 了。"
 
 
 def _extract_step_fields_fallback(
     step_name: Optional[str],
     missing_fields: List[str],
-    messages: List[Dict[str, str]]
+    messages: List[Dict[str, str]],
+    template_type: str = "nda"
 ) -> Dict[str, str]:
     text = _latest_user_text(messages)
     if not text:
         return {}
 
     extracted: Dict[str, str] = {}
+    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
 
     if step_name == "effectiveDate":
         date_value = _extract_effective_date(text)
@@ -304,52 +495,38 @@ def _extract_step_fields_fallback(
         if years_value and "mndaTermValue" in missing_fields:
             extracted["mndaTermValue"] = years_value
             extracted["mndaTerm"] = "1year"
-        if re.search(r"\b(indefinite|perpetual)\b|长期|无固定期限", text, re.IGNORECASE) and "mndaTermValue" in missing_fields:
-            extracted["mndaTerm"] = "continues"
-            extracted["mndaTermValue"] = "indefinite"
         return extracted
 
     if step_name == "lawAndJurisdiction":
-        # Pattern 1: explicit labels.
-        law_match = re.search(r"(?:governing\s*law|law|管辖法律|管辖法)\s*[:：]?\s*([A-Za-z\u4e00-\u9fff .'-]+)", text, re.IGNORECASE)
-        jurisdiction_match = re.search(r"(?:jurisdiction|court|管辖法院|法院地点|法院)\s*[:：]?\s*([A-Za-z\u4e00-\u9fff .'-]+)", text, re.IGNORECASE)
+        law_match = re.search(r"(?:governing\s*law|law|管辖法律|管辖法)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)", text, re.IGNORECASE)
+        jurisdiction_match = re.search(r"(?:jurisdiction|court|管辖法院|法院)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)", text, re.IGNORECASE)
         if law_match and "governingLaw" in missing_fields:
             extracted["governingLaw"] = law_match.group(1).strip(" ,;；。")
         if jurisdiction_match and "jurisdiction" in missing_fields:
             extracted["jurisdiction"] = jurisdiction_match.group(1).strip(" ,;；。")
-
-        # Pattern 2: two segments separated by common delimiters,
-        # e.g. "Delaware; New York County Court" or "Delaware, New York County Court"
-        if ("governingLaw" in missing_fields or "jurisdiction" in missing_fields) and (
-            "governingLaw" not in extracted or "jurisdiction" not in extracted
-        ):
-            parts = [p.strip(" ,，;；。") for p in re.split(r"[,，;；\n]+", text) if p.strip()]
-            if len(parts) >= 2:
-                if "governingLaw" in missing_fields and "governingLaw" not in extracted:
-                    extracted["governingLaw"] = parts[0]
-                if "jurisdiction" in missing_fields and "jurisdiction" not in extracted:
-                    extracted["jurisdiction"] = parts[1]
-            else:
-                # Pattern 3: connector words, e.g. "Delaware and New York County Court"
-                connector_parts = [
-                    p.strip(" ,，;；。")
-                    for p in re.split(r"\b(?:and|&)\b|以及|和", text, flags=re.IGNORECASE)
-                    if p.strip()
-                ]
-                if len(connector_parts) >= 2:
-                    if "governingLaw" in missing_fields and "governingLaw" not in extracted:
-                        extracted["governingLaw"] = connector_parts[0]
-                    if "jurisdiction" in missing_fields and "jurisdiction" not in extracted:
-                        extracted["jurisdiction"] = connector_parts[1]
         return extracted
 
     if step_name == "parties":
-        patterns = {
-            "party1Company": r"(?:party\s*1\s*company|甲方公司)\s*[:：]?\s*([A-Za-z0-9\u4e00-\u9fff .&()'/-]+)",
-            "party1Name": r"(?:party\s*1\s*name|甲方姓名|甲方签署人)\s*[:：]?\s*([A-Za-z\u4e00-\u9fff .'-]+)",
-            "party2Company": r"(?:party\s*2\s*company|乙方公司)\s*[:：]?\s*([A-Za-z0-9\u4e00-\u9fff .&()'/-]+)",
-            "party2Name": r"(?:party\s*2\s*name|乙方姓名|乙方签署人)\s*[:：]?\s*([A-Za-z\u4e00-\u9fff .'-]+)",
-        }
+        if template_type == "nda":
+            patterns = {
+                "party1Company": r"(?:party\s*1\s*company|甲方公司|甲方)\s*[:：]?\s*([A-Za-z0-9一-鿿 .&()'/-]+)",
+                "party1Name": r"(?:party\s*1\s*name|甲方姓名|甲方代表人)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)",
+                "party2Company": r"(?:party\s*2\s*company|乙方公司|乙方)\s*[:：]?\s*([A-Za-z0-9一-鿿 .&()'/-]+)",
+                "party2Name": r"(?:party\s*2\s*name|乙方姓名|乙方代表人)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)",
+            }
+        elif template_type == "csa":
+            patterns = {
+                "serviceProvider": r"(?:provider|service\s*provider|服务商|甲方公司|甲方)\s*[:：]?\s*([A-Za-z0-9一-鿿 .&()'/-]+)",
+                "customer": r"(?:customer|client|客户|乙方公司|乙方)\s*[:：]?\s*([A-Za-z0-9一-鿿 .&()'/-]+)",
+            }
+        elif template_type == "dpa":
+            patterns = {
+                "dataExporter": r"(?:exporter|data\s*exporter|输出方|甲方公司|甲方)\s*[:：]?\s*([A-Za-z0-9一-鿿 .&()'/-]+)",
+                "dataImporter": r"(?:importer|data\s*importer|输入方|乙方公司|乙方)\s*[:：]?\s*([A-Za-z0-9一-鿿 .&()'/-]+)",
+            }
+        else:
+            patterns = {}
+
         for key, pattern in patterns.items():
             if key not in missing_fields:
                 continue
@@ -359,22 +536,97 @@ def _extract_step_fields_fallback(
         return extracted
 
     if step_name == "addresses":
-        p1 = re.search(r"(?:party\s*1\s*address|甲方地址)\s*[:：]?\s*([^\n;；]+)", text, re.IGNORECASE)
-        p2 = re.search(r"(?:party\s*2\s*address|乙方地址)\s*[:：]?\s*([^\n;；]+)", text, re.IGNORECASE)
-        if p1 and "party1Address" in missing_fields:
-            extracted["party1Address"] = p1.group(1).strip(" ,;；。")
-        if p2 and "party2Address" in missing_fields:
-            extracted["party2Address"] = p2.group(1).strip(" ,;；。")
+        if template_type == "nda":
+            patterns = {
+                "party1Address": r"(?:party\s*1\s*address|甲方地址|甲方通知地址)\s*[:：]?\s*([A-Za-z0-9一-鿿 .,#&()'/-]+)",
+                "party2Address": r"(?:party\s*2\s*address|乙方地址|乙方通知地址)\s*[:：]?\s*([A-Za-z0-9一-鿿 .,#&()'/-]+)",
+            }
+        else:
+            patterns = {}
+
+        for key, pattern in patterns.items():
+            if key not in missing_fields:
+                continue
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                extracted[key] = m.group(1).strip(" ,;；。")
         return extracted
 
-    if step_name == "purpose" and "purpose" in missing_fields:
-        purpose_labeled = re.search(r"(?:business\s*purpose|purpose|商业目的)\s*[:：]?\s*(.+)$", text, re.IGNORECASE)
-        if purpose_labeled:
-            extracted["purpose"] = purpose_labeled.group(1).strip(" ,;；。")
+    if step_name == "contacts":
+        if template_type == "csa":
+            patterns = {
+                "serviceProviderContact": r"(?:provider\s*contact|服务商联系人|甲方姓名|甲方代表人)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)",
+                "customerContact": r"(?:customer\s*contact|客户联系人|乙方姓名|乙方代表人)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)",
+            }
+        elif template_type == "dpa":
+            patterns = {
+                "dataExporterContact": r"(?:exporter\s*contact|输出方联系人|甲方姓名|甲方代表人)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)",
+                "dataImporterContact": r"(?:importer\s*contact|输入方联系人|乙方姓名|乙方代表人)\s*[:：]?\s*([A-Za-z一-鿿 .'-]+)",
+            }
         else:
-            # Avoid swallowing a whole multi-field message as purpose.
-            is_structured = bool(re.search(r"(甲方|乙方|party\s*1|party\s*2|生效日期|effective\s*date|管辖|governing|jurisdiction|地址|address)\s*[:：]", text, re.IGNORECASE))
-            if not is_structured and len(text.strip()) <= 200:
+            patterns = {}
+        
+        for key, pattern in patterns.items():
+            if key not in missing_fields:
+                continue
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                extracted[key] = m.group(1).strip(" ,;；。")
+        return extracted
+
+    if step_name == "serviceDescription":
+        desc_match = re.search(r"(?:service\s*description|description|服务描述|服务内容)\s*[:：]?\s*(.+)$", text, re.IGNORECASE)
+        if desc_match and "serviceDescription" in missing_fields:
+            extracted["serviceDescription"] = desc_match.group(1).strip(" ,;；。")
+        return extracted
+
+    if step_name == "serviceTerm":
+        term_match = re.search(r"(?:service\s*term|term|服务期限|期限)\s*[:：]?\s*(.+)$", text, re.IGNORECASE)
+        if term_match and "serviceTerm" in missing_fields:
+            extracted["serviceTerm"] = term_match.group(1).strip(" ,;；。")
+        return extracted
+
+    if step_name == "paymentTerms":
+        pay_match = re.search(r"(?:payment\s*terms|payment|付款条款|支付方式)\s*[:：]?\s*(.+)$", text, re.IGNORECASE)
+        if pay_match and "paymentTerms" in missing_fields:
+            extracted["paymentTerms"] = pay_match.group(1).strip(" ,;；。")
+        return extracted
+
+    if step_name == "purpose":
+        if "purpose" not in missing_fields:
+            return extracted
+        purpose_pattern = r"(?:business\s*purpose|purpose|商业目的)\s*[:：]?\s*(.+)$"
+        purpose_match = re.search(purpose_pattern, text, re.IGNORECASE)
+        if purpose_match:
+            extracted["purpose"] = purpose_match.group(1).strip(" ,;；。")
+        elif len(text.strip()) <= 200:
+            # Check if it's just a template selection (by name or number)
+            from services.template_service import template_registry
+            all_templates = template_registry.get_all_templates()
+            is_template_selection = False
+            
+            # Check if it's a number (1, 2, 3...)
+            if re.match(r"^\d+[\.、]?$", text.strip()):
+                is_template_selection = True
+            
+            # Check if it's a template name
+            clean_text = text.strip().lower()
+            # Common selection prefixes
+            selection_prefixes = ["选", "选择", "我要", "我想", "点", "1.", "2.", "3.", "1、", "2、", "3、"]
+            for prefix in selection_prefixes:
+                if clean_text.startswith(prefix.lower()):
+                    clean_text = clean_text[len(prefix):].strip()
+
+            for t in all_templates:
+                names = [t.get('name', '').lower(), t.get('name_zh', '').lower()]
+                if clean_text in names or any(n in clean_text for n in names if len(n) > 2):
+                    # Additional check: if it's just the name (with optional prefix), it's a selection
+                    if len(clean_text) < len(t.get('name_zh', '')) + 5:
+                        is_template_selection = True
+                        break
+
+            is_structured = bool(re.search(r"(甲方 | 乙方|party|生效|管辖|governing|contact)", text, re.IGNORECASE))
+            if not is_structured and not is_template_selection:
                 extracted["purpose"] = text.strip()
     return extracted
 
@@ -382,14 +634,17 @@ def _extract_step_fields_fallback(
 def _extract_fields_fallback_all_steps(
     current_fields: Dict[str, str],
     messages: List[Dict[str, str]],
+    template_type: str = "nda"
 ) -> Dict[str, str]:
     snapshot = dict(current_fields or {})
     extracted: Dict[str, str] = {}
-    for step_name, keys in GUIDED_STEPS:
+    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
+
+    for step_name, keys in config['guided_steps']:
         missing = [k for k in keys if not str(snapshot.get(k, "")).strip()]
         if not missing:
             continue
-        step_extracted = _extract_step_fields_fallback(step_name, missing, messages)
+        step_extracted = _extract_step_fields_fallback(step_name, missing, messages, template_type)
         if step_extracted:
             extracted.update(step_extracted)
             snapshot.update(step_extracted)
@@ -400,42 +655,40 @@ def _get_openrouter_api_key() -> Optional[str]:
     key = os.getenv("OPENROUTER_API_KEY")
     if key is None:
         return None
-    stripped = key.strip()
-    return stripped if stripped else None
+    return key.strip() if key.strip() else None
 
 
-async def get_chat_response(messages: List[Dict[str, str]], current_fields: Dict[str, str] = None) -> Dict[str, Any]:
+async def get_chat_response(
+    messages: List[Dict[str, str]],
+    current_fields: Dict[str, str] = None,
+    template_type: str = "nda"
+) -> Dict[str, Any]:
     """
     Call the LLM API and return chat response with extracted fields.
 
     Args:
-        messages: User conversation messages (without system prompt)
-        current_fields: Currently filled fields from the frontend
+        messages: User conversation messages
+        current_fields: Currently filled fields
+        template_type: Template type (nda, csa, dpa)
 
     Returns:
         Dict with 'reply' and 'fields' keys
     """
     language = _detect_language(messages)
+    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
 
     api_key = _get_openrouter_api_key()
     if not api_key:
         return {
-            "reply": "服务暂时不可用，请稍后重试。" if language == "zh" else "The AI service is temporarily unavailable. Please try again shortly.",
+            "reply": "服务暂时不可用，请稍后重试。",
             "fields": {}
         }
 
-    # Combine current fields into conversation context
-    context = None
+    context_str = None
     if current_fields and any(current_fields.values()):
-        filled_fields = {k: v for k, v in current_fields.items() if v}
-        if filled_fields:
-            context_str = "Current filled fields:\n" + "\n".join(
-                f"- {k}: '{v}'" for k, v in filled_fields.items()
-            )
-        else:
-            context_str = None
-    else:
-        context_str = None
+        filled = {k: v for k, v in current_fields.items() if v}
+        if filled:
+            context_str = "Current filled fields:\n" + "\n".join(f"- {k}: '{v}'" for k, v in filled.items())
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -444,17 +697,12 @@ async def get_chat_response(messages: List[Dict[str, str]], current_fields: Dict
         "X-Title": "PreLegal AI"
     }
 
-    # Build messages with system prompt
-    full_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    system_prompt = load_system_prompt(template_type)
+    full_messages = [{"role": "system", "content": system_prompt}]
 
-    # Add context if available
     if context_str:
-        full_messages.append({
-            "role": "system",
-            "content": f"Current form state: {context_str}"
-        })
+        full_messages.append({"role": "system", "content": f"Current form state: {context_str}"})
 
-    # Add conversation history
     full_messages.extend(messages)
 
     payload = {
@@ -464,10 +712,7 @@ async def get_chat_response(messages: List[Dict[str, str]], current_fields: Dict
         "max_tokens": 1000,
         "response_format": {"type": "json_object"},
         "extra_body": {
-            "provider": {
-                "order": ["Cerebras"],
-                "allow_fallbacks": False
-            }
+            "provider": {"order": ["Cerebras"], "allow_fallbacks": False}
         }
     }
 
@@ -479,125 +724,94 @@ async def get_chat_response(messages: List[Dict[str, str]], current_fields: Dict
             content = data["choices"][0]["message"].get("content")
 
             parsed = _safe_parse_llm_json(content) or {}
-            extracted_fields = _normalize_fields(parsed.get("fields", {}))
+            extracted_fields = _normalize_fields(parsed.get("fields", {}), template_type)
 
-            current_snapshot = dict(current_fields or {})
-            fallback_fields = _extract_fields_fallback_all_steps(current_snapshot, messages)
+            fallback_fields = _extract_fields_fallback_all_steps(current_fields or {}, messages, template_type)
             if fallback_fields:
                 extracted_fields = {**fallback_fields, **extracted_fields}
 
             merged_fields = dict(current_fields or {})
             merged_fields.update(extracted_fields)
 
-            step_name, missing_in_step = _next_step_missing(merged_fields)
-            question = _build_guided_question(step_name, missing_in_step, language)
-            ack = _build_acknowledgement(extracted_fields, language)
-            final_reply = f"{ack}\n\n{question}" if ack else question
+            # Check if user is asking what's missing
+            user_text = _latest_user_text(messages)
+            if _is_asking_for_missing_info(user_text):
+                final_reply = _build_missing_fields_reply(merged_fields, template_type)
+                return {"reply": final_reply, "fields": extracted_fields, "templateType": template_type}
 
-            return {
-                "reply": final_reply,
-                "fields": extracted_fields
-            }
+            step_name, missing_in_step = _next_step_missing(merged_fields, template_type)
+            question = _build_guided_question(step_name, missing_in_step, language, template_type)
+            llm_reply = parsed.get("reply", "").strip()
+            numeric_name_hint = _build_numeric_name_hint(_find_numeric_name_issues(user_text, template_type))
+            
+            if llm_reply:
+                # Check if the LLM's natural reply includes a question or prompt for info
+                if step_name and not re.search(r'[?？请]', llm_reply):
+                    final_reply = f"{llm_reply}\n\n{question}"
+                else:
+                    final_reply = llm_reply
+            else:
+                ack = _build_acknowledgement(extracted_fields, language)
+                final_reply = f"{ack}\n\n{question}" if ack else question
+
+            if numeric_name_hint:
+                final_reply = f"{final_reply}\n\n{numeric_name_hint}"
+            return {"reply": final_reply, "fields": extracted_fields, "templateType": template_type}
         except httpx.HTTPStatusError as e:
-            error_body = e.response.text[:500] if e.response is not None else "No response body"
-            print(f"HTTP error from OpenRouter: {e}. Response body: {error_body}")
-            current_snapshot = dict(current_fields or {})
-            extracted_fields = _extract_fields_fallback_all_steps(current_snapshot, messages)
-            merged_fields = dict(current_snapshot)
+            print(f"HTTP error: {e}")
+            extracted_fields = _extract_fields_fallback_all_steps(current_fields or {}, messages, template_type)
+            merged_fields = dict(current_fields or {})
             merged_fields.update(extracted_fields)
-            step_name, missing_in_step = _next_step_missing(merged_fields)
-            guided = _build_guided_question(step_name, missing_in_step, language)
+            user_text = _latest_user_text(messages)
+            if _is_asking_for_missing_info(user_text):
+                final_reply = _build_missing_fields_reply(merged_fields, template_type)
+                return {"reply": final_reply, "fields": extracted_fields, "templateType": template_type}
+            step_name, missing_in_step = _next_step_missing(merged_fields, template_type)
+            guided = _build_guided_question(step_name, missing_in_step, language, template_type)
             ack = _build_acknowledgement(extracted_fields, language)
-            return {
-                "reply": f"{ack}\n\n{guided}" if ack else guided,
-                "fields": extracted_fields
-            }
+            return {"reply": f"{ack}\n\n{guided}" if ack else guided, "fields": extracted_fields, "templateType": template_type}
         except httpx.ConnectError:
             print("Connection error to OpenRouter")
-            current_snapshot = dict(current_fields or {})
-            extracted_fields = _extract_fields_fallback_all_steps(current_snapshot, messages)
-            merged_fields = dict(current_snapshot)
+            extracted_fields = _extract_fields_fallback_all_steps(current_fields or {}, messages, template_type)
+            merged_fields = dict(current_fields or {})
             merged_fields.update(extracted_fields)
-            step_name, missing_in_step = _next_step_missing(merged_fields)
-            guided = _build_guided_question(step_name, missing_in_step, language)
+            user_text = _latest_user_text(messages)
+            if _is_asking_for_missing_info(user_text):
+                final_reply = _build_missing_fields_reply(merged_fields, template_type)
+                return {"reply": final_reply, "fields": extracted_fields, "templateType": template_type}
+            step_name, missing_in_step = _next_step_missing(merged_fields, template_type)
+            guided = _build_guided_question(step_name, missing_in_step, language, template_type)
             ack = _build_acknowledgement(extracted_fields, language)
-            return {
-                "reply": f"{ack}\n\n{guided}" if ack else guided,
-                "fields": extracted_fields
-            }
+            return {"reply": f"{ack}\n\n{guided}" if ack else guided, "fields": extracted_fields, "templateType": template_type}
         except Exception as e:
-            print(f"Unexpected error calling LLM: {e}")
-            current_snapshot = dict(current_fields or {})
-            extracted_fields = _extract_fields_fallback_all_steps(current_snapshot, messages)
-            merged_fields = dict(current_snapshot)
+            print(f"Unexpected error: {e}")
+            extracted_fields = _extract_fields_fallback_all_steps(current_fields or {}, messages, template_type)
+            merged_fields = dict(current_fields or {})
             merged_fields.update(extracted_fields)
-            step_name, missing_in_step = _next_step_missing(merged_fields)
-            guided = _build_guided_question(step_name, missing_in_step, language)
+            user_text = _latest_user_text(messages)
+            if _is_asking_for_missing_info(user_text):
+                final_reply = _build_missing_fields_reply(merged_fields, template_type)
+                return {"reply": final_reply, "fields": extracted_fields, "templateType": template_type}
+            step_name, missing_in_step = _next_step_missing(merged_fields, template_type)
+            guided = _build_guided_question(step_name, missing_in_step, language, template_type)
             ack = _build_acknowledgement(extracted_fields, language)
-            return {
-                "reply": f"{ack}\n\n{guided}" if ack else guided,
-                "fields": extracted_fields
-            }
+            return {"reply": f"{ack}\n\n{guided}" if ack else guided, "fields": extracted_fields, "templateType": template_type}
 
 
-def check_missing_fields(current_fields: Dict[str, str]) -> List[str]:
-    """
-    Check which critical fields are still missing.
+def check_missing_fields(current_fields: Dict[str, str], template_type: str = "nda") -> List[str]:
+    """Check which critical fields are still missing."""
+    config = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS['nda'])
+    critical_fields = config['critical_fields']
 
-    Args:
-        current_fields: Dict of currently filled fields
-
-    Returns:
-        List of missing critical field names
-    """
     if not current_fields:
-        return CRITICAL_FIELDS.copy()
+        return critical_fields.copy()
 
-    missing = []
-    for field in CRITICAL_FIELDS:
-        value = current_fields.get(field, '').strip()
-        if not value:
-            missing.append(field)
-
-    return missing
+    return [f for f in critical_fields if not str(current_fields.get(f, '')).strip()]
 
 
-def get_missing_fields_prompt(missing_fields: List[str]) -> str:
-    """
-    Generate a user-friendly prompt asking for missing fields.
-
-    Args:
-        missing_fields: List of missing field names
-
-    Returns:
-        Bilingual prompt message
-    """
+def get_missing_fields_prompt(missing_fields: List[str], lang: str = "zh") -> str:
+    """Return a message listing missing critical fields."""
     if not missing_fields:
-        return None
+        return ""
 
-    # Human-readable field names (bilingual)
-    field_descriptions = {
-        "purpose": "business purpose (商业目的)",
-        "effectiveDate": "effective date in YYYY-MM-DD format (生效日期)",
-        "governingLaw": "governing law (e.g., Delaware) (管辖法律)",
-        "jurisdiction": "jurisdiction/court location (管辖法院)",
-        "party1Name": "Party 1 representative name (甲方姓名)",
-        "party1Company": "Party 1 company name (甲方公司)",
-        "party1Address": "Party 1 notice address (甲方地址)",
-        "party2Name": "Party 2 representative name (乙方姓名)",
-        "party2Company": "Party 2 company name (乙方公司)",
-        "party2Address": "Party 2 notice address (乙方地址)"
-    }
-
-    missing_items = [field_descriptions.get(f, f) for f in missing_fields]
-
-    if len(missing_items) == 1:
-        field = missing_items[0]
-        reply_en = f"To complete the agreement, I need to know: {field}. Please provide this information."
-        reply_zh = f"为完成协议，我需要了解：{field}。请提供此信息。"
-    else:
-        items_list = ", ".join(missing_items[:-1]) + f", and {missing_items[-1]}"
-        reply_en = f"I need a few more details to complete the agreement: {items_list}. Please provide them."
-        reply_zh = f"我还需要一些详细信息来完成协议：{items_list}。请提供这些信息。"
-
-    return f"{reply_en}\n\n{reply_zh}"
+    return f"请提供以下必要信息以生成 PDF：{', '.join(missing_fields)}"

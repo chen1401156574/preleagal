@@ -152,4 +152,87 @@ describe('Template Engine', () => {
       expect(result).toContain(longPurpose);
     });
   });
+
+  describe('Multi-Template Support (PL-6)', () => {
+    const csaData = {
+      purpose: 'Cloud infrastructure services',
+      effectiveDate: '2026-06-01',
+      mndaTerm: '1year',
+      mndaTermValue: '1',
+      confidentialityTerm: '1year',
+      confidentialityTermValue: '1',
+      governingLaw: 'California',
+      jurisdiction: 'San Francisco County',
+      party1Name: 'John Doe',
+      party1Signature: '',
+      party1Title: 'CEO',
+      party1Company: 'CloudTech Inc',
+      party1Address: '1 Cloud Way, SF',
+      party2Name: 'Jane Smith',
+      party2Signature: '',
+      party2Title: 'CTO',
+      party2Company: 'DataCorp LLC',
+      party2Address: '2 Data Blvd, LA',
+      // CSA specific fields
+      serviceProvider: 'CloudTech Inc',
+      customer: 'DataCorp LLC',
+      serviceDescription: 'Cloud storage and computing services with 99.9% uptime SLA',
+      serviceTerm: '24 months',
+      paymentTerms: 'monthly',
+      serviceLevel: '99.9% uptime',
+    };
+
+    const dpaData = {
+      purpose: 'GDPR compliant data processing',
+      effectiveDate: '2026-07-01',
+      mndaTerm: '1year',
+      mndaTermValue: '1',
+      confidentialityTerm: '1year',
+      confidentialityTermValue: '1',
+      governingLaw: 'Ireland',
+      jurisdiction: 'Dublin',
+      party1Name: 'John Doe',
+      party1Signature: '',
+      party1Title: 'Data Protection Officer',
+      party1Company: 'EU Exporter Ltd',
+      party1Address: '1 EU St, Dublin',
+      party2Name: 'Jane Smith',
+      party2Signature: '',
+      party2Title: 'Data Processing Manager',
+      party2Company: 'Global Importer Inc',
+      party2Address: '2 Global Ave, NYC',
+      // DPA specific fields
+      dataExporter: 'EU Exporter Ltd',
+      dataImport: 'Global Importer Inc',
+      dataCategories: 'Personal names, email addresses, usage statistics',
+      processingPurpose: 'Cloud service provision and analytics',
+      dataTransfers: 'Yes, to US with standard contractual clauses',
+      securityMeasures: 'Encryption at rest and in transit, SOC2 compliant',
+    };
+
+    // NDA Template Detection and Rendering
+    it('should detect and render NDA template by default', () => {
+      const result = renderPreviewDocument(defaultData, true);
+      expect(result).toContain('Mutual Non-Disclosure Agreement');
+      expect(result).toContain('PARTY 1');
+      expect(result).toContain('PARTY 2');
+      expect(result).toContain('Standard Terms');
+    });
+
+    it('should detect and render CSA template when service provider is present', () => {
+      const result = renderPreviewDocument(csaData as any, true);
+      expect(result).toContain('Cloud Service Agreement');
+      expect(result).toContain('SERVICE PROVIDER');
+      expect(result).toContain('CUSTOMER');
+      expect(result).toContain('Cloud storage and computing services');
+    });
+
+    it('should detect and render DPA template when data exporter is present', () => {
+      const result = renderPreviewDocument(dpaData as any, true);
+      expect(result).toContain('Data Processing Agreement');
+      expect(result).toContain('DATA EXPORTER');
+      expect(result).toContain('DATA IMPORTER');
+      expect(result).toContain('GDPR');
+    });
+  });
 });

@@ -1,6 +1,5 @@
-// NDA 模板引擎 - 用于替换模板中的占位符
+// Template Engine - NDA, CSA, DPA templates
 
-// 表单数据接口
 export interface NDAPayload {
   purpose: string;
   effectiveDate: string;
@@ -20,10 +19,28 @@ export interface NDAPayload {
   party2Title: string;
   party2Company: string;
   party2Address: string;
+  // CSA fields
+  serviceProvider?: string;
+  serviceProviderContact?: string;
+  customer?: string;
+  customerContact?: string;
+  serviceDescription?: string;
+  serviceTerm?: string;
+  paymentTerms?: string;
+  serviceLevel?: string;
+  // DPA fields
+  dataExporter?: string;
+  dataExporterContact?: string;
+  dataImporter?: string;
+  dataImporterContact?: string;
+  dataCategories?: string;
+  processingPurpose?: string;
+  dataTransfers?: string;
+  securityMeasures?: string;
 }
 
-// 渲染表格的辅助函数
-export function renderTable(data: NDAPayload): string {
+// Render table for NDA
+export function renderNDATable(data: NDAPayload): string {
   const emptyValue = '_';
   return `| | **PARTY 1** | **PARTY 2** |
 |:---|:----:|:----:|
@@ -31,19 +48,39 @@ export function renderTable(data: NDAPayload): string {
 |Print Name|${data.party1Name || emptyValue}|${data.party2Name || emptyValue}|
 |Title|${data.party1Title || emptyValue}|${data.party2Title || emptyValue}|
 |Company|${data.party1Company || emptyValue}|${data.party2Company || emptyValue}|
-|Notice Address (Use email or postal address)|${data.party1Address || emptyValue}|${data.party2Address || emptyValue}|
+|Notice Address|${data.party1Address || emptyValue}|${data.party2Address || emptyValue}|
 |Date|${data.effectiveDate}|${data.effectiveDate}|`;
 }
 
-// Side-by-Side 渲染器：生成左侧表格 + 文档预览的 HTML
-export function renderPreviewDocument(data: NDAPayload, showTable: boolean = false): string {
+// Render table for CSA
+export function renderCSATable(data: NDAPayload): string {
+  const emptyValue = '_';
+  return `| | **SERVICE PROVIDER** | **CUSTOMER** |
+|:---|:----:|:----:|
+|Company|${data.serviceProvider || emptyValue}|${data.customer || emptyValue}|
+|Contact|${data.serviceProviderContact || emptyValue}|${data.customerContact || emptyValue}|
+|Date|${data.effectiveDate}|${data.effectiveDate}|`;
+}
+
+// Render table for DPA
+export function renderDPATable(data: NDAPayload): string {
+  const emptyValue = '_';
+  return `| | **DATA EXPORTER** | **DATA IMPORTER** |
+|:---|:----:|:----:|
+|Company|${data.dataExporter || emptyValue}|${data.dataImporter || emptyValue}|
+|Contact|${data.dataExporterContact || emptyValue}|${data.dataImporterContact || emptyValue}|
+|Date|${data.effectiveDate}|${data.effectiveDate}|`;
+}
+
+// Render NDA Cover Page
+export function renderNDACoverPage(data: NDAPayload): string {
   const normalizedMndaTerm = (data.mndaTermValue || '').trim();
   const mndaTermText = normalizedMndaTerm ? (isNaN(Number(normalizedMndaTerm)) ? normalizedMndaTerm : `${normalizedMndaTerm} year(s)`) : '______';
 
   const normalizedConfTerm = (data.confidentialityTermValue || '').trim();
   const confidentialityText = normalizedConfTerm ? (isNaN(Number(normalizedConfTerm)) ? normalizedConfTerm : `${normalizedConfTerm} year(s)`) : '______';
 
-  let coverPage = `# Mutual Non-Disclosure Agreement
+  return `# Mutual Non-Disclosure Agreement
 
 ## USING THIS MUTUAL NON-DISCLOSURE AGREEMENT
 
@@ -59,101 +96,218 @@ export function renderPreviewDocument(data: NDAPayload, showTable: boolean = fal
 | **Term of Confidentiality** | ${confidentialityText} |
 | **Governing Law** | ${data.governingLaw || '______'} |
 | **Jurisdiction** | ${data.jurisdiction || '______'} |
-| **MNDA Modifications** | *None* |
 
 ---
 
 By signing this Cover Page, each party agrees to enter into this MNDA as of the Effective Date.`;
+}
+
+// Render CSA Cover Page
+export function renderCSACoverPage(data: NDAPayload): string {
+  return `# Cloud Service Agreement
+
+## USING THIS CLOUD SERVICE AGREEMENT
+
+> This Cloud Service Agreement (the "CSA") defines the terms of engagement between the Service Provider and the Customer for cloud computing services.
+
+---
+
+| | |
+|:---|:---|
+| **Purpose** | ${data.purpose || '______'} |
+| **Effective Date** | ${data.effectiveDate || '______'} |
+| **Service Provider** | ${data.serviceProvider || '______'} |
+| **Customer** | ${data.customer || '______'} |
+| **Service Description** | ${data.serviceDescription || '______'} |
+| **Service Term** | ${data.serviceTerm || '______'} |
+| **Governing Law** | ${data.governingLaw || '______'} |
+| **Payment Terms** | ${data.paymentTerms || '______'} |
+
+---
+
+This agreement binds both parties as of the Effective Date.`;
+}
+
+// Render DPA Cover Page
+export function renderDPACoverPage(data: NDAPayload): string {
+  return `# Data Processing Agreement (DPA)
+
+## USING THIS DATA PROCESSING AGREEMENT
+
+> This Data Processing Agreement (the "DPA") is entered into for compliance with GDPR and other data protection regulations governing the processing of personal data.
+
+---
+
+| | |
+|:---|:---|
+| **Purpose** | ${data.purpose || '______'} |
+| **Effective Date** | ${data.effectiveDate || '______'} |
+| **Data Exporter** | ${data.dataExporter || '______'} |
+| **Data Importer** | ${data.dataImporter || '______'} |
+| **Data Categories** | ${data.dataCategories || '______'} |
+| **Processing Purpose** | ${data.processingPurpose || '______'} |
+| **International Transfers** | ${data.dataTransfers || '______'} |
+| **Governing Law** | ${data.governingLaw || '______'} |
+
+---
+
+This DPA is incorporated into a main processing agreement.`;
+}
+
+// NDA Standard Terms
+export function renderNDASubjectTerms(): string {
+  return `# Standard Terms
+
+1. **Introduction**. This Mutual Non-Disclosure Agreement (which incorporates these Standard Terms and the Cover Page) ("MNDA") allows each party ("Disclosing Party") to disclose or make available information in connection with discussions that (1) the Disclosing Party identifies as "confidential" or (2) should be reasonably understood as confidential due to its nature and the circumstances of its disclosure ("Confidential Information").
+
+2. **Use and Protection**. The Receiving Party shall: (a) use Confidential Information solely for the **Purpose** (${dataPurpose}__); (b) not disclose Confidential Information to third parties without prior written approval, except to employees, agents, advisors having a reasonable need to know; and (c) protect Confidential Information using at least reasonable standards of care.
+
+3. **Exceptions**. Obligations do not apply to information that is: (a) publicly available; (b) rightfully known prior to receipt; (c) rightfully obtained from a third party; or (d) independently developed.
+
+4. **Legal Disclosure**. Required disclosures to authorities may be made with reasonable advance notice to the Disclosing Party.
+
+5. **Term and Termination**. This MNDA commences on the **Effective Date** (${data.effectiveDate__}) and expires at the end of the **MNDA Term** (${termText__}). Obligations survive for the **Term of Confidentiality** (${confText__}).
+
+6. **Return or Destruction**. Upon termination, the Receiving Party will cease using Confidential Information and destroy or return it.
+
+7. **Proprietary Rights**. The Disclosing Party retains all intellectual property rights.
+
+8. **Disclaimer**. ALL CONFIDENTIAL INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTIES.
+
+9. **Governing Law**. This MNDA is governed by the laws of **${data.governingLaw__}**. Disputes must be brought in **${data.jurisdiction__}**.
+
+---
+
+*Common Paper Mutual Non-Disclosure Agreement [Version 1.0](https://commonpaper.com/standards/mutual-nda/1.0/) - CC BY 4.0*`;
+}
+
+// Generate document based on template type
+export function renderPreviewDocument(data: NDAPayload, showTable: boolean = false): string {
+  // Default to NDA if no template specified
+  const hasServiceFields = data.serviceProvider || data.customer || data.serviceDescription;
+  const hasDataFields = data.dataExporter || data.dataImporter || data.dataCategories;
+
+  if (hasServiceFields) {
+    // CSA Template
+    const parts: string[] = [];
+    parts.push(renderCSACoverPage(data));
+
+    if (showTable) {
+      parts.push(renderCSATable(data));
+    }
+
+    const serviceDesc = data.serviceDescription || '______';
+    const termText = data.serviceTerm || '______';
+
+    parts.push(`
+---
+
+# Standard Service Terms
+
+1. **Services**. The Service Provider shall provide the following services: ${serviceDesc}
+
+2. **Term**. This CSA shall commence on the Effective Date and continue for the Service Term of ${termText}.
+
+3. **Payment**. Customer shall pay according to the following Payment Terms: ${data.paymentTerms || '______'}
+
+4. **Service Level**. Service Provider warrants the following Service Level: ${data.serviceLevel || '______'}
+
+5. **Data Location**. All data shall be stored at: ${data.dataLocation || '______'}
+
+6. **Security**. Service Provider maintains the following Security Standards: ${data.securityStandards || '______'}
+
+7. **Governing Law**. This agreement is governed by the laws of **${data.governingLaw || '______'}**. Disputes shall be resolved in **${data.jurisdiction || '______'}**.
+
+---
+
+*Cloud Service Agreement - CC BY 4.0*`);
+
+    return parts.join('\n\n');
+  }
+
+  if (hasDataFields) {
+    // DPA Template
+    const parts: string[] = [];
+    parts.push(renderDPACoverPage(data));
+
+    if (showTable) {
+      parts.push(renderDPATable(data));
+    }
+
+    parts.push(`
+---
+
+# Standard DPA Terms
+
+1. **Data Processing**. The Data Importer shall process personal data as follows:
+   - Categories of data: ${data.dataCategories || '______'}
+   - Purpose of processing: ${data.processingPurpose || '______'}
+   - Type of data subjects: ${data.dataSubjects || '______'}
+
+2. **International Transfers**. Data transfers outside EEA: ${data.dataTransfers || '______'}
+
+3. **Security Measures**. Data Importer implements: ${data.securityMeasures || '______'}
+
+4. **Sub-processors**. Use of subprocessors: ${data.subProcessors || 'No subprocessors'}
+
+5. **Data Retention**. Data shall be retained for: ${data.dataRetention || '______'}
+
+6. **Data Subject Rights**. Data Importer shall assist Data Exporter in fulfilling data subject rights requests.
+
+7. **Breach Notification**. Data Importer shall notify Data Exporter of any breach within 24 hours.
+
+8. **Governing Law**. This DPA is governed by **${data.governingLaw || '______'}** law.
+
+---
+
+*Data Processing Agreement - GDPR Compliant*`);
+
+    return parts.join('\n\n');
+  }
+
+  // Default: NDA
+  const parts: string[] = [];
+  parts.push(renderNDACoverPage(data));
+
+  const normalizedMndaTerm = (data.mndaTermValue || '').trim();
+  const mndaTermText = normalizedMndaTerm ? (isNaN(Number(normalizedMndaTerm)) ? normalizedMndaTerm : `${normalizedMndaTerm} year(s)`) : '______';
+  const normalizedConfTerm = (data.confidentialityTermValue || '').trim();
+  const confText = normalizedConfTerm ? (isNaN(Number(normalizedConfTerm)) ? normalizedConfTerm : `${normalizedConfTerm} year(s)`) : '______';
 
   if (showTable) {
-    coverPage += `
----
-
-${renderTable(data)}
-
----
-
-Common Paper Mutual Non-Disclosure Agreement (Version 1.0) free to use under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).`;
+    parts.push(renderNDATable(data));
   }
 
-  const standardTerms = `# Standard Terms
+  parts.push(`
+---
 
-1. **Introduction**. This Mutual Non-Disclosure Agreement (which incorporates these Standard Terms and the Cover Page (defined below)) ("MNDA") allows each party ("Disclosing Party") to disclose or make available information in connection with the **Purpose** (${data.purpose || '______'}) which (1) the Disclosing Party identifies to the receiving party ("Receiving Party") as "confidential", "proprietary", or the like or (2) should be reasonably understood as confidential or proprietary due to its nature and the circumstances of its disclosure ("Confidential Information"). Each party's Confidential Information also includes the existence and status of the parties' discussions and information on the Cover Page. Confidential Information includes technical or business information, product designs or roadmaps, requirements, pricing, security and compliance documentation, technology, inventions and know-how. To use this MNDA, the parties must complete and sign a cover page incorporating these Standard Terms ("Cover Page"). Each party is identified on the Cover Page and capitalized terms have the meanings given herein or on the Cover Page.
+# Standard NDA Terms
 
-2. **Use and Protection of Confidential Information**. The Receiving Party shall: (a) use Confidential Information solely for the **Purpose** (${data.purpose || '______'}); (b) not disclose Confidential Information to third parties without the Disclosing Party's prior written approval, except that the Receiving Party may disclose Confidential Information to its employees, agents, advisors, contractors and other representatives having a reasonable need to know for the **Purpose**, provided these representatives are bound by confidentiality obligations no less protective of the Disclosing Party than the applicable terms in this MNDA and the Receiving Party remains responsible for their compliance with this MNDA; and (c) protect Confidential Information using at least the same protections the Receiving Party uses for its own similar information but no less than a reasonable standard of care.
+1. **Introduction**. This Mutual Non-Disclosure Agreement allows each party to disclose Confidential Information in connection with the **Purpose** (${data.purpose || '______'}). Each party's Confidential Information also includes the existence of discussions.
 
-3. **Exceptions**. The Receiving Party's obligations in this MNDA do not apply to information that it can demonstrate: (a) is or becomes publicly available through no fault of the Receiving Party; (b) it rightfully knew or possessed prior to receipt from the Disclosing Party without confidentiality restrictions; (c) it rightfully obtained from a third party without confidentiality restrictions; or (d) it independently developed without using or referencing the Confidential Information.
+2. **Use and Protection**. The Receiving Party shall: (a) use Confidential Information solely for the **Purpose** (${data.purpose || '______'}); (b) not disclose to third parties except to employees, agents, advisors with reasonable need to know who are bound by confidentiality obligations; and (c) protect Confidential Information using at least reasonable standards of care.
 
-4. **Disclosures Required by Law**. The Receiving Party may disclose Confidential Information to the extent required by law, regulation or regulatory authority, subpoena or court order, provided (to the extent legally permitted) it provides the Disclosing Party reasonable advance notice of the required disclosure and reasonably cooperates, at the Disclosing Party's expense, with the Disclosing Party's efforts to obtain confidential treatment for the Confidential Information.
+3. **Exceptions**. Obligations do not apply to information that is: (a) publicly available; (b) rightfully known prior; (c) rightfully obtained from third party; or (d) independently developed.
 
-5. **Term and Termination**. This MNDA commences on the **Effective Date** (${data.effectiveDate || '______'}) and expires at the end of the **MNDA Term** (${mndaTermText}). Either party may terminate this MNDA for any or no reason upon written notice to the other party. The Receiving Party's obligations relating to Confidential Information will survive for the **Term of Confidentiality** (${confidentialityText}), despite any expiration or termination of this MNDA.
+4. **Legal Disclosure**. Required disclosures may be made with advance notice.
 
-6. **Return or Destruction of Confidential Information**. Upon expiration or termination of this MNDA or upon the Disclosing Party's earlier request, the Receiving Party will: (a) cease using Confidential Information; (b) promptly after the Disclosing Party's written request, destroy all Confidential Information in the Receiving Party's possession or control or return it to the Disclosing Party; and (c) if requested by the Disclosing Party, confirm its compliance with these obligations in writing. As an exception to subsection (b), the Receiving Party may retain Confidential Information in accordance with its standard backup or record retention policies or as required by law, but the terms of this MNDA will continue to apply to the retained Confidential Information.
+5. **Term and Termination**. This MNDA commences on the **Effective Date** (${data.effectiveDate || '______'}) and expires at the end of the **MNDA Term** (${mndaTermText}). Obligations survive for the **Term of Confidentiality** (${confText}).
 
-7. **Proprietary Rights**. The Disclosing Party retains all of its intellectual property and other rights in its Confidential Information and its disclosure to the Receiving Party grants no license under such rights.
+6. **Return or Destruction**. Upon expiration, cease using Confidential Information and destroy or return it.
 
-8. **Disclaimer**. ALL CONFIDENTIAL INFORMATION IS PROVIDED "AS IS", WITH ALL FAULTS, AND WITHOUT WARRANTIES, INCLUDING THE IMPLIED WARRANTIES OF TITLE, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+7. **Proprietary Rights**. The Disclosing Party retains all intellectual property rights.
 
-9. **Governing Law and Jurisdiction**. This MNDA and all matters relating hereto are governed by, and construed in accordance with, the laws of the State of **${data.governingLaw || '______'}** without regard to the conflict of laws provisions of such **${data.governingLaw || '______'}**. Any legal suit, action, or proceeding relating to this MNDA must be instituted in the federal or state courts located in **${data.jurisdiction || '______'}**. Each party irrevocably submits to the exclusive jurisdiction of such **${data.jurisdiction || '______'}** in any such suit, action, or proceeding.
+8. **Disclaimer**. ALL CONFIDENTIAL INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTIES.
 
-10. **Equitable Relief**. A breach of this MNDA may cause irreparable harm for which monetary damages are an insufficient remedy. Upon a breach of this MNDA, the Disclosing Party is entitled to seek appropriate equitable relief, including an injunction, in addition to its other remedies.
+9. **Governing Law**. This MNDA is governed by ${data.governingLaw || '______'} law. Disputes in **${data.jurisdiction || '______'}**.
 
-11. **General**. Neither party has an obligation under this MNDA to disclose Confidential Information to the other or proceed with any proposed transaction. Neither party may assign this MNDA without the prior written consent of the other party, except that either party may assign this MNDA in connection with a merger, reorganization, acquisition or other transfer of all or substantially all its assets or voting securities. Any assignment in violation of this Section is null and void. This MNDA will bind and inure to the benefit of each party's permitted successors and assigns. Waivers must be signed by the waiving party's authorized representative and cannot be implied from conduct. If any provision of this MNDA is held unenforceable, it will be limited to the minimum extent necessary so the rest of this MNDA remains in effect. This MNDA (including the Cover Page) constitutes the entire agreement of the parties with respect to its subject matter, and supersedes all prior and contemporaneous understandings, agreements, representations, and warranties, whether written or oral, regarding such subject matter. This MNDA may only be amended, modified, waived, or supplemented by an agreement in writing signed by both parties. Notices, requests and approvals under this MNDA must be sent in writing to the email or postal addresses on the Cover Page and are deemed delivered on receipt. This MNDA may be executed in counterparts, including electronic copies, each of which is deemed an original and which together form the same agreement.
+10. **Equitable Relief**. Breach may cause irreparable harm; injunctive relief is available.
+
+11. **General**. No assignment without consent. This MNDA constitutes entire agreement. Notices must be in writing. May be executed in counterparts.
 
 ---
 
-*Common Paper Mutual Non-Disclosure Agreement [Version 1.0](https://commonpaper.com/standards/mutual-nda/1.0/) free to use under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).*`;
+*Common Paper Mutual Non-Disclosure Agreement [Version 1.0](https://commonpaper.com/standards/mutual-nda/1.0/) - CC BY 4.0*`);
 
-  return `${coverPage}\n\n---\n\n${standardTerms}`;
-}
-
-// 模板替换函数
-function replacePlaceholders(template: string, data: NDAPayload): string {
-  let result = template;
-
-  // Cover Page 替换
-  result = result.replace(/Evaluate the proposed business transaction between the parties\./, data.purpose);
-  result = result.replace(/\[Date: fill in date\]/, data.effectiveDate);
-
-  // MNDA Term
-  if (data.mndaTerm === '1year') {
-    result = result.replace(/- \[x\] Expirs \[1 year\(s\)\] from Effective Date\./, '- [x] Expires [1 year(s)] from Effective Date.');
-    result = result.replace(/- \[ \] Continues until terminated in accordance with the terms of the MNDA\./, '- [ ] Continues until terminated in accordance with the terms of the MNDA.');
-  } else {
-    result = result.replace(/- \[x\] Expires \[1 year\(s\)\] from Effective Date\./, '- [ ] Expires [1 year(s)] from Effective Date.');
-    result = result.replace(/- \[ \] Continues until terminated in accordance with the terms of the MNDA\./, '- [x] Continues until terminated in accordance with the terms of the MNDA.');
-  }
-
-  // Term of Confidentiality
-  if (data.confidentialityTerm === '1year') {
-    result = result.replace(/- \[x\] \[1 year\(s\)\] from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws\./, '- [x] [1 year(s)] from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws.');
-    result = result.replace(/- \[ \] In perpetuity\./, '- [ ] In perpetuity.');
-  } else {
-    result = result.replace(/- \[x\] \[1 year\(s\)\] from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws\./, '- [ ] [1 year(s)] from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws.');
-    result = result.replace(/- \[ \] In perpetuity\./, '- [x] In perpetuity.');
-  }
-
-  // Governing Law & Jurisdiction - Simple replacement
-  result = result.replace(/Governing Law: \{fill in state\}/, `Governing Law: ${data.governingLaw}`);
-  result = result.replace(/Jurisdiction: \[Fill in city or county and state, i\.e\\.courts located in New Castle, DE\]/, `Jurisdiction: ${data.jurisdiction}`);
-
-  // Standard Terms 替换
-  result = result.replace(/Purpose/g, data.purpose);
-  result = result.replace(/Effective Date/g, data.effectiveDate);
-  result = result.replace(/MNDA Term/g, data.mndaTerm === '1year' ? '1 year' : 'Indefinite');
-  result = result.replace(/Term of Confidentiality/g, data.confidentialityTerm === '1year' ? '1 year' : 'In perpetuity');
-  result = result.replace(/Governing Law/g, data.governingLaw);
-  result = result.replace(/Jurisdiction/g, data.jurisdiction);
-
-  return result;
-}
-
-// Party 信息表格行生成
-function generatePartyRow(label: string, party1Value: string, party2Value: string): string {
-  return `|${label}|${party1Value}|${party2Value}|`;
-}
-
-// 生成完整的 NDA 文档（用于 API）
-export function generateNDADocument(data: NDAPayload): string {
-  return renderPreviewDocument(data, true);
+  return parts.join('\n\n');
 }

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jsPDF from 'jspdf';
 import autotable from 'jspdf-autotable';
-import { generateNDADocument, NDAPayload } from '@/utils/templateEngine';
+import { renderPreviewDocument, NDAPayload } from '@/utils/templateEngine';
 
-// 将 Markdown 格式的 NDA 转换为 PDF
+// Markdown to PDF converter
 function markdownToPDF(markdown: string): ArrayBuffer {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -14,7 +14,8 @@ function markdownToPDF(markdown: string): ArrayBuffer {
   const lines = markdown.split('\n');
 
   const addHeader = (level: 1 | 2 | 3, text: string, yOffset: number) => {
-    doc.setFontSize(level === 1 ? 20 : level === 2 ? 16 : 14);
+    const fontSize = level === 1 ? 20 : level === 2 ? 16 : 14;
+    doc.setFontSize(fontSize);
     doc.setFont('helvetica', 'bold');
     const splitText = doc.splitTextToSize(text, maxWidth);
     doc.text(splitText, margins, yOffset);
@@ -39,9 +40,7 @@ function markdownToPDF(markdown: string): ArrayBuffer {
       i++;
     }
 
-    if (i < tableLines.length) {
-      i++;
-    }
+    if (i < tableLines.length) i++;
 
     while (i < tableLines.length) {
       data.push(tableLines[i].split('|').filter(s => s.trim()).map(s => s.trim()));
@@ -90,8 +89,7 @@ function markdownToPDF(markdown: string): ArrayBuffer {
       y = addHeader(2, line.substring(3), y);
     } else if (line.startsWith('# ')) {
       y = addHeader(1, line.substring(2), y);
-    }
-    else {
+    } else {
       y = addParagraph(line, y);
     }
 
@@ -104,22 +102,40 @@ function markdownToPDF(markdown: string): ArrayBuffer {
   return doc.output('arraybuffer');
 }
 
-// API 路由处理器
+// API route handler
 export async function POST(request: NextRequest) {
   try {
     const formData: NDAPayload = await request.json();
 
-    // 生成完整文档
-    const documentContent = generateNDADocument(formData);
+    // Determine template type based on data
+    const hasServiceFields = formData.serviceProvider || formData.customer;
+    const hasDataFields = formData.dataExporter || formData.dataImporter;
 
-    // 转换为 PDF
+    let documentContent: string;
+    let templateType = 'NDA';
+    let filename = 'Mutual_NDA';
+
+    if (hasServiceFields) {
+      documentContent = renderPreviewDocument(formData, true);
+      templateType = 'CSA';
+      filename = 'Cloud_Service_Agreement';
+    } else if (hasDataFields) {
+      documentContent = renderPreviewDocument(formData, true);
+      templateType = 'DPA';
+      filename = 'Data_Processing_Agreement';
+    } else {
+      documentContent = renderPreviewDocument(formData, true);
+      templateType = 'NDA';
+      filename = 'Mutual_NDA';
+    }
+
+    // Convert to PDF
     const pdfBytes = markdownToPDF(documentContent);
 
-    // 返回 PDF
     return new NextResponse(pdfBytes as ArrayBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Mutual_NDA_${Date.now()}.pdf"`,
+        'Content-Disposition': `attachment; filename="${filename}_${Date.now()}.pdf"`,
       },
     });
   } catch (error) {

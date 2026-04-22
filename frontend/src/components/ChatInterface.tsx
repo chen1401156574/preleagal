@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { NDAPayload, renderPreviewDocument } from '@/utils/templateEngine';
 import { useAuth } from '@/contexts/AuthContext';
 import ReactMarkdown from 'react-markdown';
@@ -11,30 +11,38 @@ interface Message {
   content: string;
 }
 
-// Critical fields needed before PDF download
-const CRITICAL_FIELDS = [
-  'purpose',
-  'effectiveDate',
-  'mndaTermValue',
-  'governingLaw',
-  'jurisdiction',
-  'party1Name',
-  'party1Company',
-  'party1Address',
-  'party2Name',
-  'party2Company',
-  'party2Address'
-];
+interface Template {
+  id: string;
+  name: string;
+  name_zh?: string;
+  description: string;
+  description_zh?: string;
+  priority: number;
+}
+
+interface RecommendedTemplate {
+  id: string;
+  name_en: string;
+  name_zh: string;
+  confidence: number;
+  reason_en: string;
+  reason_zh: string;
+}
+
+interface IntentResponse {
+  matched: boolean;
+  requested_template: string;
+  similar_templates: RecommendedTemplate[];
+  response_en: string;
+  response_zh: string;
+  supported_templates: { id: string; name: string }[];
+}
 
 interface ChatResponse {
   reply: string;
   fields: Record<string, string>;
   missingFields?: string[];
-}
-
-interface StepTemplate {
-  label: string;
-  template: string;
+  templateType?: string;
 }
 
 export default function ChatInterface() {
@@ -42,12 +50,45 @@ export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentTemplate, setCurrentTemplate] = useState<string>('nda');
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showIntentModal, setShowIntentModal] = useState(false);
+  const [intentResult, setIntentResult] = useState<IntentResponse | null>(null);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
+  const [leftWidth, setLeftWidth] = useState<number>(50); // percentage
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Critical fields mapping based on backend services/chat_service.py
+  const CRITICAL_FIELDS_CONFIG: Record<string, string[]> = {
+    nda: [
+      "purpose", "effectiveDate", "mndaTermValue", "governingLaw", "jurisdiction",
+      "party1Name", "party1Company", "party1Address", "party2Name", "party2Company", "party2Address"
+    ],
+    csa: [
+      "purpose", "effectiveDate", "serviceProvider", "serviceProviderContact",
+      "customer", "customerContact", "serviceDescription", "serviceTerm",
+      "governingLaw", "paymentTerms"
+    ],
+    dpa: [
+      "purpose", "effectiveDate", "dataExporter", "dataExporterContact",
+      "dataImporter", "dataImporterContact", "dataCategories", "processingPurpose",
+      "dataTransfers", "governingLaw"
+    ]
+  };
+
+  const getCriticalFields = () => {
+    return CRITICAL_FIELDS_CONFIG[currentTemplate] || CRITICAL_FIELDS_CONFIG.nda;
+  };
+
+  const CRITICAL_FIELDS = getCriticalFields();
+
   const [formData, setFormData] = useState<NDAPayload>({
     purpose: '',
     effectiveDate: '',
-    mndaTerm: '1year', // Keeping type compatibility but value is driven by mndaTermValue
+    mndaTerm: '1year',
     mndaTermValue: '',
-    confidentialityTerm: '1year', // Keeping type compatibility
+    confidentialityTerm: '1year',
     confidentialityTermValue: '',
     governingLaw: '',
     jurisdiction: '',
@@ -64,26 +105,58 @@ export default function ChatInterface() {
   });
 
   const [pdfLoading, setPdfLoading] = useState(false);
-  const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load available templates
+  useEffect(() => {
+    fetchTemplates();
+  }, []);
 
   // Initialize with greeting message
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([{
-        role: 'assistant',
-        content: 'Hello! I\'ll help you create a Mutual NDA. What\'s the business purpose?\n你好！我来帮你起草相互保密协议。请问商业目的是什么？'
-      }]);
+      const greeting = getInitialGreeting();
+      setMessages([{ role: 'assistant', content: greeting }]);
     }
   }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Focus input when loading finishes
+  useEffect(() => {
+    if (!loading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [loading]);
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/templates');
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.templates);
+      }
+    } catch (error) {
+      console.error('Failed to fetch templates:', error);
+    }
+  };
+
+  const getInitialGreeting = () => {
+    const templates = [
+      { id: 'nda', name_zh: '相互保密协议' },
+      { id: 'csa', name_zh: '云服务协议' },
+      { id: 'dpa', name_zh: '数据处理协议' },
+    ];
+    const list = templates.map((t, i) => `${i + 1}. ${t.name_zh}`).join('\n');
+    return `你好！我可以帮您起草法律文件：\n${list}\n\n您需要什么文件？`;
+  };
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, warningMessages]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -93,8 +166,6 @@ export default function ChatInterface() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
-    // Keep chat guidance conversational; don't keep old bulk warnings while user is answering.
-    setWarningMessages([]);
 
     try {
       const response = await fetch('http://localhost:8000/api/chat', {
@@ -105,7 +176,8 @@ export default function ChatInterface() {
         },
         body: JSON.stringify({
           messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
-          currentFields: formData
+          currentFields: formData,
+          templateType: currentTemplate
         }),
       });
 
@@ -115,7 +187,6 @@ export default function ChatInterface() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
 
-      // Update form data with extracted fields
       if (data.fields && Object.keys(data.fields).length > 0) {
         setFormData(prev => ({
           ...prev,
@@ -123,95 +194,138 @@ export default function ChatInterface() {
         }));
       }
 
+      // Update template type if changed by backend
+      if (data.templateType) {
+        setCurrentTemplate(data.templateType);
+      }
+
     } catch (err) {
       console.error('Chat error:', err);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. / 抱歉，我遇到了错误。请重试。'
+        content: '抱歉，我遇到了错误。请重试。'
       }]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle intent detection for unsupported templates
+  const handleIntentDetection = async (userRequest: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userRequest }),
+      });
+
+      if (!response.ok) throw new Error('Intent detection failed');
+
+      const result: IntentResponse = await response.json();
+      setIntentResult(result);
+      setShowIntentModal(true);
+    } catch (error) {
+      console.error('Intent detection error:', error);
+    }
+  };
+
+  const handleSwitchTemplate = (templateId: string) => {
+    setCurrentTemplate(templateId);
+    setShowIntentModal(false);
+    setFormData({
+      purpose: '',
+      effectiveDate: '',
+      mndaTerm: '1year',
+      mndaTermValue: '',
+      confidentialityTerm: '1year',
+      confidentialityTermValue: '',
+      governingLaw: '',
+      jurisdiction: '',
+      party1Name: '',
+      party1Signature: '',
+      party1Title: '',
+      party1Company: '',
+      party1Address: '',
+      party2Name: '',
+      party2Signature: '',
+      party2Title: '',
+      party2Company: '',
+      party2Address: '',
+    });
+
+    const template = templates.find(t => t.id === templateId);
+    const templateName = template?.name_zh || template?.name || templateId;
+
+    const newGreeting = `好的，让我帮您起草${templateName}。请先告诉我商业目的。`;
+
+    setMessages(prev => [...prev, { role: 'assistant', content: newGreeting }]);
+  };
+
   const getMissingFieldsWarning = (fields: string[]): string => {
     const fieldNames: Record<string, string> = {
-      purpose: 'business purpose (商业目的)',
-      effectiveDate: 'effective date (生效日期)',
-      mndaTermValue: 'MNDA term in years (生效时段/年限)',
-      governingLaw: 'governing law (管辖法律)',
-      jurisdiction: 'jurisdiction (管辖法院)',
-      party1Name: 'Party 1 name (甲方姓名)',
-      party1Company: 'Party 1 company (甲方公司)',
-      party1Address: 'Party 1 address (甲方地址)',
-      party2Name: 'Party 2 name (乙方姓名)',
-      party2Company: 'Party 2 company (乙方公司)',
-      party2Address: 'Party 2 address (乙方地址)'
+      purpose: '商业目的',
+      effectiveDate: '生效日期',
+      mndaTermValue: '协议期限',
+      governingLaw: '管辖法律',
+      jurisdiction: '管辖法院',
+      party1Name: '甲方姓名',
+      party1Company: '甲方公司',
+      party1Address: '甲方地址',
+      party2Name: '乙方姓名',
+      party2Company: '乙方公司',
+      party2Address: '乙方地址',
+      serviceProvider: '服务提供商',
+      customer: '客户',
+      serviceDescription: '服务描述',
+      serviceTerm: '服务期限',
+      paymentTerms: '付款条款',
+      dataExporter: '数据出口方',
+      dataImporter: '数据进口方',
+      dataCategories: '数据类别',
+      processingPurpose: '处理目的',
+      dataTransfers: '数据转移',
     };
 
     const missing = fields.map(f => fieldNames[f] || f);
+    const missingList = missing.join('\n- ');
 
-    if (missing.length === 1) {
-      return `Please provide the missing information: ${missing[0]}\n请提供缺失的信息：${missing[0]}`;
-    }
-    return `Please provide the missing information:\n- ${missing.join('\n- ')}\n\n请提供缺失的信息:\n- ${missing.join('\n- ')}`;
+    return `请提供缺失的信息:\n- ${missingList}\n\n请补充完整信息后下载。`;
   };
 
-  const getCurrentStepTemplate = (): StepTemplate | null => {
-    const hasValue = (field: keyof NDAPayload) => Boolean(formData[field]?.trim());
+  // Handle resizing
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
 
-    if (!hasValue('purpose')) {
-      return {
-        label: '当前步骤：商业目的',
-        template: '商业目的：评估合作 / 技术交流 / 项目尽调'
-      };
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = (e.clientX / window.innerWidth) * 100;
+      if (newWidth > 20 && newWidth < 80) {
+        setLeftWidth(newWidth);
+      }
     }
+  }, [isResizing]);
 
-    if (!hasValue('party1Company') || !hasValue('party1Name') || !hasValue('party2Company') || !hasValue('party2Name')) {
-      return {
-        label: '当前步骤：双方公司与姓名',
-        template: '甲方公司：XXX；甲方姓名：XXX；乙方公司：XXX；乙方姓名：XXX'
-      };
-    }
-
-    if (!hasValue('effectiveDate')) {
-      return {
-        label: '当前步骤：生效日期',
-        template: '生效日期：2026-04-22（YYYY-MM-DD）'
-      };
-    }
-
-    if (!hasValue('mndaTermValue')) {
-      return {
-        label: '当前步骤：生效时段',
-        template: '生效时段：3 years（或 3 yrs / 3 年）'
-      };
-    }
-
-    if (!hasValue('governingLaw') || !hasValue('jurisdiction')) {
-      return {
-        label: '当前步骤：管辖法与法院',
-        template: '管辖法律：Delaware；管辖法院：New York County Court'
-      };
-    }
-
-    if (!hasValue('party1Address') || !hasValue('party2Address')) {
-      return {
-        label: '当前步骤：双方地址',
-        template: '甲方地址：XXX；乙方地址：XXX'
-      };
-    }
-
-    return {
-      label: '当前步骤：信息已完整',
-      template: '可直接点击 Download PDF 下载文档'
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
     };
-  };
+  }, [resize, stopResizing]);
 
   const handleDownloadPDF = async () => {
-    const missingFields = CRITICAL_FIELDS.filter(f => !formData[f as keyof NDAPayload]?.trim());
+    const criticalFields = getCriticalFields();
+    const isReady = criticalFields.every(f => formData[f as keyof NDAPayload]?.trim());
 
-    if (missingFields.length > 0) {
+    if (!isReady) {
+      const missingFields = criticalFields.filter(f => !formData[f as keyof NDAPayload]?.trim());
       setWarningMessages([getMissingFieldsWarning(missingFields)]);
       return;
     }
@@ -230,7 +344,7 @@ export default function ChatInterface() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Mutual_NDA_${Date.now()}.pdf`;
+      a.download = `${currentTemplate}_${Date.now()}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -245,13 +359,6 @@ export default function ChatInterface() {
 
   // Check if all critical fields are filled
   const isReadyForDownload = CRITICAL_FIELDS.every(f => formData[f as keyof NDAPayload]?.trim());
-  const currentStepTemplate = getCurrentStepTemplate();
-  const previewHighlights = [
-    { label: '生效日期', value: formData.effectiveDate || '未填写' },
-    { label: '生效时段', value: formData.mndaTermValue ? `${formData.mndaTermValue} year(s)` : '未填写' },
-    { label: '管辖法', value: formData.governingLaw || '未填写' },
-    { label: '管辖法院', value: formData.jurisdiction || '未填写' },
-  ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -265,51 +372,76 @@ export default function ChatInterface() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-800">PreLegal AI Chat</h1>
-            <p className="text-xs text-slate-500">Mutual NDA Assistant</p>
+            <p className="text-xs text-slate-500 flex items-center gap-2">
+              当前模板：
+              {templates.find(t => t.id === currentTemplate)?.[navigator.language.startsWith('zh') ? 'name_zh' : 'name']
+                || templates.find(t => t.id === currentTemplate)?.name
+                || currentTemplate.toUpperCase()}
+            </p>
+            <p className="text-xs text-slate-500 flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${isReadyForDownload ? 'bg-green-500' : 'bg-yellow-500'}`} />
+              {isReadyForDownload ? '准备就绪' : '信息缺失'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isReadyForDownload ? 'bg-green-500' : 'bg-yellow-500'}`} />
-            <span className={`text-xs font-medium ${isReadyForDownload ? 'text-green-600' : 'text-yellow-600'}`}>
-              {isReadyForDownload ? 'Ready to download' : 'Fields missing'}
-            </span>
-          </div>
+          <button
+            onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            切换模板
+          </button>
           <span className="text-sm text-slate-600 hidden sm:inline">{user?.email}</span>
           <button
             onClick={logout}
             className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
           >
-            Sign Out
+            退出登录
           </button>
         </div>
       </header>
 
-      {/* Warning Banner */}
-      {warningMessages.length > 0 && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-3">
-          <div className="max-w-[1920px] mx-auto flex items-start gap-3">
-            <svg width="20" height="20" className="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <div className="flex-1">
-              <p className="text-yellow-800 font-medium text-sm whitespace-pre-wrap">{warningMessages[warningMessages.length - 1]}</p>
+      {/* Template Selector Dropdown */}
+      {showTemplateSelector && (
+        <div className="bg-white border-b px-6 py-4 shadow-sm z-20">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">选择模板</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {templates.slice(0, 3).map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => handleSwitchTemplate(template.id)}
+                  className={`p-4 rounded-lg border-2 text-left transition-all ${
+                    currentTemplate === template.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 hover:border-blue-300'
+                  }`}
+                >
+                  <div className="font-semibold text-slate-800">
+                    {template.name_zh || template.name}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {template.description_zh || template.description}
+                  </div>
+                </button>
+              ))}
             </div>
             <button
-              onClick={() => setWarningMessages([])}
-              className="text-yellow-600 hover:text-yellow-800"
+              onClick={() => setShowTemplateSelector(false)}
+              className="mt-3 text-xs text-slate-500 hover:text-slate-700"
             >
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              关闭
             </button>
           </div>
         </div>
       )}
 
-      <main className="flex-1 flex overflow-hidden">
+      <main className={`flex-1 flex overflow-hidden relative ${isResizing ? 'cursor-col-resize select-none' : ''}`}>
         {/* Left: Chat Area */}
-        <div className="w-full lg:w-1/2 flex flex-col bg-white border-r">
+        <div 
+          className="flex flex-col bg-white border-r h-full overflow-hidden"
+          style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${leftWidth}%` : '100%' }}
+        >
           <div className="flex-1 overflow-y-scroll p-6 pr-3 space-y-6 [scrollbar-width:thin] [scrollbar-color:#94a3b8_#e2e8f0]">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -339,32 +471,51 @@ export default function ChatInterface() {
           <div className="p-4 border-t bg-slate-50">
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your answer... / 请输入您的回答..."
+                placeholder="请输入您的回答..."
                 className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                 disabled={loading}
               />
               <button
-                type="submit"
-                disabled={loading || !input.trim()}
-                className="bg-blue-600 text-white rounded-xl px-6 py-3 text-sm font-bold hover:bg-blue-700 transition-all disabled:bg-slate-300 shadow-md"
-              >
-                Send
-              </button>
-            </form>
-            {currentStepTemplate && (
-              <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs font-semibold text-slate-600">{currentStepTemplate.label}</p>
-                <p className="mt-1 text-xs text-slate-500 whitespace-pre-wrap">{currentStepTemplate.template}</p>
-              </div>
-            )}
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="bg-blue-600 text-white rounded-xl px-6 py-3 text-sm font-bold hover:bg-blue-700 transition-all disabled:bg-slate-300 shadow-md"
+          >
+            发送
+          </button>
+        </form>
+        {warningMessages.length > 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+            {warningMessages.map((msg, idx) => (
+              <p key={idx} className="text-sm text-yellow-700 whitespace-pre-wrap">{msg}</p>
+            ))}
+            <button
+              onClick={() => setWarningMessages([])}
+              className="mt-2 text-xs font-bold text-yellow-800 hover:underline"
+            >
+              关闭
+            </button>
           </div>
-        </div>
+        )}
+      </div>
+      </div>
 
-        {/* Right: Preview Area */}
-        <div className="hidden lg:flex lg:w-1/2 flex-col bg-slate-50">
+      {/* Resizer Handle */}
+      <div
+        onMouseDown={startResizing}
+        className={`hidden lg:flex w-1 hover:w-1.5 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-all z-30 items-center justify-center group ${isResizing ? 'bg-blue-600 w-1.5' : 'bg-slate-200'}`}
+      >
+        <div className="h-8 w-0.5 bg-slate-400 group-hover:bg-white rounded-full"></div>
+      </div>
+
+      {/* Right: Preview Area */}
+      <div 
+        className="hidden lg:flex flex-col bg-slate-50 h-full overflow-hidden"
+        style={{ width: `${100 - leftWidth}%` }}
+      >
           <div className="p-4 border-b bg-white flex items-center justify-between shadow-sm">
             <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,12 +538,10 @@ export default function ChatInterface() {
           </div>
           <div className="flex-1 overflow-y-scroll p-4 md:p-8 bg-[#E5E7EB] [scrollbar-width:thin] [scrollbar-color:#94a3b8_#e2e8f0]">
             <div className="max-w-[800px] mx-auto">
-              <div className="bg-white shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-slate-200 min-h-[1056px] w-full px-8 py-12 md:px-16 md:py-20 mb-8 mx-auto relative group">
-                {/* Visual "Paper" fold/binding effect on the left edge if desired, or just clean white */}
+              <div className="bg-white shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-slate-200 min-h-[1056px] w-full px-8 py-12 md:px-16 md:py-20 mb-8 mx-auto relative">
                 <div className="absolute top-0 left-0 bottom-0 w-1 bg-gradient-to-r from-slate-200 to-transparent opacity-50"></div>
-                
-                <div className="prose prose-slate prose-sm md:prose-base max-w-none 
-                  prose-headings:font-bold prose-headings:text-slate-900 
+                <div className="prose prose-slate prose-sm md:prose-base max-w-none
+                  prose-headings:font-bold prose-headings:text-slate-900
                   prose-h1:text-center prose-h1:text-2xl prose-h1:mb-8 prose-h1:uppercase prose-h1:tracking-wide
                   prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:border-b prose-h2:border-slate-200 prose-h2:pb-2
                   prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3
@@ -415,6 +564,59 @@ export default function ChatInterface() {
           </div>
         </div>
       </main>
+
+      {/* Intent Recognition Modal */}
+      {showIntentModal && intentResult && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-bold text-slate-800">
+                {intentResult.matched ? '模板已匹配 / Template Matched' : '未找到匹配的模板 / No Exact Match Found'}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {!intentResult.matched && (
+                <p className="text-slate-700 whitespace-pre-wrap">
+                  {intentResult.response_zh}\n{intentResult.response_en}
+                </p>
+              )}
+
+              <div className="space-y-3">
+                <h4 className="font-semibold text-slate-700">推荐模板 / Recommended Templates</h4>
+                {intentResult.similar_templates.map((tpl, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSwitchTemplate(tpl.id)}
+                    className="w-full text-left p-4 rounded-lg border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-800">
+                          {tpl.name_zh} ({tpl.name_en})
+                        </div>
+                        <div className="text-sm text-slate-600 mt-1">
+                          {tpl.reason_zh}\n{tpl.reason_en}
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {(tpl.confidence * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setShowIntentModal(false)}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+              >
+                取消 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,124 @@
+[
+  {
+    "id": "nda",
+    "name": "Mutual Non-Disclosure Agreement",
+    "name_zh": "相互保密协议",
+    "description": "Standard NDA for protecting confidential information",
+    "description_zh": "保护机密信息的标准保密协议",
+    "prompt_file": "nda_system_prompt.txt",
+    "fallback_reason": "基础保密协议，保护沟通隐私",
+    "fallback_reason_zh": "Basic NDA for protecting confidential communications",
+    "priority": 1
+  },
+  {
+    "id": "csa",
+    "name": "Cloud Service Agreement",
+    "name_zh": "云服务协议",
+    "description": "Agreement for cloud service providers and customers",
+    "description_zh": "云服务提供商与客户之间的协议",
+    "prompt_file": "csa_system_prompt.txt",
+    "fallback_reason": "包含数据处理和服务条款",
+    "fallback_reason_zh": "Contains data processing and service terms",
+    "priority": 2
+  },
+  {
+    "id": "dpa",
+    "name": "Data Processing Agreement",
+    "name_zh": "数据处理协议",
+    "description": "DPA for GDPR compliance and data processing activities",
+    "description_zh": "GDPR 合规和数据处理活动的 DPA",
+    "prompt_file": "dpa_system_prompt.txt",
+    "fallback_reason": "专注于数据处理和保护条款",
+    "fallback_reason_zh": "Focuses on data processing and protection terms",
+    "priority": 3
+  },
+  {
+    "id": "spa",
+    "name": "Service Provider Agreement",
+    "name_zh": "服务提供商协议",
+    "description": "Agreement between service provider and client",
+    "description_zh": "服务提供商与客户之间的协议",
+    "prompt_file": "spa_system_prompt.txt",
+    "fallback_reason": "通用服务条款，适用于多种场景",
+    "fallback_reason_zh": "General service terms applicable to various scenarios",
+    "priority": 4
+  },
+  {
+    "id": "psa",
+    "name": "Professional Services Agreement",
+    "name_zh": "专业服务协议",
+    "description": "Agreement for professional consulting and advisory services",
+    "description_zh": "专业咨询顾问服务的协议",
+    "prompt_file": "psa_system_prompt.txt",
+    "fallback_reason": "专业服务描述和付款方式",
+    "fallback_reason_zh": "Describes professional services and payment terms",
+    "priority": 5
+  },
+  {
+    "id": "sla",
+    "name": "Service Level Agreement",
+    "name_zh": "服务等级协议",
+    "description": "Agreement defining service quality and performance metrics",
+    "description_zh": "定义服务质量和 performance 指标的协议",
+    "prompt_file": "sla_system_prompt.txt",
+    "fallback_reason": "定义服务标准和质量指标",
+    "fallback_reason_zh": "Defines service standards and quality metrics",
+    "priority": 6
+  },
+  {
+    "id": "dpa-core",
+    "name": "Design Partner Agreement",
+    "name_zh": "设计合作伙伴协议",
+    "description": "Agreement for design partnership and collaboration",
+    "description_zh": "设计合作伙伴关系的协议",
+    "prompt_file": "design_partner_system_prompt.txt",
+    "fallback_reason": "合作伙伴关系和协作条款",
+    "fallback_reason_zh": "Partnership and collaboration terms",
+    "priority": 7
+  },
+  {
+    "id": "dba",
+    "name": "Business Associate Agreement",
+    "name_zh": "商业合作伙伴协议",
+    "description": "BAA for HIPAA compliance and healthcare data protection",
+    "description_zh": "HIPAA 合规和医疗保健数据保护的 BAA",
+    "prompt_file": "dba_system_prompt.txt",
+    "fallback_reason": "医疗健康数据保护",
+    "fallback_reason_zh": "Healthcare data protection",
+    "priority": 8,
+    "note": "Not fully implemented yet - recommends CSA or DPA"
+  },
+  {
+    "id": "mpa",
+    "name": "Mutual NDA Cover Page",
+    "name_zh": "相互保密协议封面",
+    "description": "Cover page for mutual NDA documents",
+    "description_zh": "相互保密协议的封面页",
+    "prompt_file": "nda_system_prompt.txt",
+    "fallback_reason": "基础 NDA 封面页",
+    "fallback_reason_zh": "Basic NDA cover page",
+    "priority": 9
+  },
+  {
+    "id": "pa",
+    "name": "Partnership Agreement",
+    "name_zh": "合伙协议",
+    "description": "Partnership agreement for business collaboration",
+    "description_zh": "商业合作的合伙协议",
+    "prompt_file": "partnership_system_prompt.txt",
+    "fallback_reason": "商业合作关系和利益分配",
+    "fallback_reason_zh": "Business partnership and profit sharing",
+    "priority": 10
+  },
+  {
+    "id": "plaa",
+    "name": "Pilot Agreement",
+    "name_zh": "试点协议",
+    "description": "Agreement for pilot testing and validation",
+    "description_zh": "试点测试和验证的协议",
+    "prompt_file": "pilot_system_prompt.txt",
+    "fallback_reason": "试点项目合作",
+    "fallback_reason_zh": "Pilot project collaboration",
+    "priority": 11
+  }
+]
